@@ -3,31 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Учет доходов</title>
+    <title>Учет доходов - Full CRUD</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        slate: {
-                            50: '#f8fafc',
-                            100: '#f1f5f9',
-                            200: '#e2e8f0',
-                            300: '#cbd5e1',
-                            400: '#94a3b8',
-                            500: '#64748b',
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1e293b',
-                            900: '#0f172a',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -36,10 +14,9 @@
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
-    <!-- REPLACE THIS URL WITH YOUR ACTUAL GOOGLE APPS SCRIPT WEB APP URL -->
     <script>
-        // ⚠️ IMPORTANT: Replace this with your actual Google Apps Script Web App URL
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHO4otXkEq-UbPojM_662ZLbDLSvsLJWaPzXqSIMjQ/dev';
+        // ⚠️ REPLACE THIS WITH YOUR ACTUAL SHEETDB API URL
+        const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/d667e1b70zn9o';
         
         // Generate unique ID
         function generateId() {
@@ -58,69 +35,39 @@
             });
         }
         
-        function formatTime(dateString) {
-            if (!dateString) return '-';
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return '-';
-            return date.toLocaleTimeString('ru-RU', {
-                hour: '2-digit',
-                minute: '2-digit'
+        // Format currency
+        function formatCurrency(amount, currency = 'RUB') {
+            return parseFloat(amount).toLocaleString('ru-RU', { 
+                style: 'currency', 
+                currency: currency 
             });
         }
         
-        // Enhanced API functions with better error handling
+        // API Functions - Full CRUD
         async function fetchIncomes() {
             try {
-                console.log('Fetching incomes from:', `${GOOGLE_SCRIPT_URL}?action=list`);
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=list`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
+                const response = await fetch(SHEETDB_API_URL);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
-                console.log('Fetched data:', data);
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                
                 return Array.isArray(data) ? data : [];
             } catch (error) {
                 console.error('Error fetching incomes:', error);
-                alert('Ошибка при загрузке данных: ' + error.message);
-                return [];
+                throw error;
             }
         }
         
         async function createIncome(incomeData) {
             try {
-                console.log('Creating income:', incomeData);
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=create`, {
+                const response = await fetch(SHEETDB_API_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ...incomeData,
-                        id: generateId(),
-                        created_date: new Date().toISOString(),
-                        updated_date: new Date().toISOString()
+                        id: generateId()
                     })
                 });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                console.log('Create result:', result);
-                
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-                
-                return result;
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
             } catch (error) {
                 console.error('Error creating income:', error);
                 throw error;
@@ -129,30 +76,13 @@
         
         async function updateIncome(id, incomeData) {
             try {
-                console.log('Updating income:', id, incomeData);
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=update&id=${encodeURIComponent(id)}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        ...incomeData,
-                        updated_date: new Date().toISOString()
-                    })
+                const response = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(incomeData)
                 });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                console.log('Update result:', result);
-                
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-                
-                return result;
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
             } catch (error) {
                 console.error('Error updating income:', error);
                 throw error;
@@ -161,23 +91,11 @@
         
         async function deleteIncome(id) {
             try {
-                console.log('Deleting income:', id);
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=delete&id=${encodeURIComponent(id)}`, {
-                    method: 'POST'
+                const response = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, {
+                    method: 'DELETE'
                 });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                console.log('Delete result:', result);
-                
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-                
-                return result;
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return true;
             } catch (error) {
                 console.error('Error deleting income:', error);
                 throw error;
@@ -205,22 +123,14 @@
                         <i class="fas fa-home"></i>
                         <span class="font-medium">Платежи</span>
                     </a>
-                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-                        <i class="fas fa-cog"></i>
-                        <span class="font-medium">Настройки</span>
-                    </a>
                 </div>
             </div>
         </div>
 
         <!-- Main Content -->
         <main class="flex-1 flex flex-col">
-            <!-- Mobile Header -->
             <header class="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 md:hidden sticky top-0 z-10">
                 <div class="flex items-center gap-3">
-                    <button class="p-2 hover:bg-slate-100 rounded-lg transition-colors" onclick="toggleSidebar()">
-                        <i class="fas fa-bars text-slate-600"></i>
-                    </button>
                     <h1 class="text-lg font-bold text-slate-900">Учет доходов</h1>
                 </div>
             </header>
@@ -231,7 +141,7 @@
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Учет доходов</h1>
-                            <p class="text-slate-600 mt-2">Добавляйте и отслеживайте все поступления.</p>
+                            <p class="text-slate-600 mt-2">Полный контроль над всеми платежами.</p>
                         </div>
                         <button id="toggleFormBtn" onclick="toggleForm()" 
                                 class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-all">
@@ -336,8 +246,8 @@
                     <!-- Income List -->
                     <div id="loading" class="text-center py-8">
                         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        <p class="mt-2 text-slate-600">Загрузка данных...</p>
-                        <p class="text-xs text-slate-400 mt-2">Если загрузка занимает много времени, проверьте URL Google Apps Script</p>
+                        <p class="mt-2 text-slate-600">Загрузка данных из Google Sheets...</p>
+                        <p class="text-xs text-slate-400 mt-2">Первый запуск может занять до 30 секунд</p>
                     </div>
                     
                     <div id="incomeList" class="hidden">
@@ -354,11 +264,6 @@
                                             <input type="text" id="searchInput" placeholder="Поиск по всем полям..." 
                                                    class="pl-9 w-full sm:w-64 md:w-80 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                         </div>
-                                        <button onclick="exportCSV()" 
-                                                class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
-                                            <i class="fas fa-file-download"></i>
-                                            Экспорт в CSV
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -371,7 +276,6 @@
                                             <th class="text-left p-3 font-medium text-slate-600">Клиент</th>
                                             <th class="text-left p-3 font-medium text-slate-600">Сумма</th>
                                             <th class="text-left p-3 font-medium text-slate-600">№ платежа</th>
-                                            <th class="text-left p-3 font-medium text-slate-600">Стоимость дог.</th>
                                             <th class="text-left p-3 font-medium text-slate-600">Подписан</th>
                                             <th class="text-left p-3 font-medium text-slate-600">Направление</th>
                                             <th class="text-left p-3 font-medium text-slate-600">Получил</th>
@@ -402,10 +306,10 @@
         
         // Initialize the app
         document.addEventListener('DOMContentLoaded', async function() {
-            // Validate Google Script URL
-            if (GOOGLE_SCRIPT_URL.includes('YOUR_DEPLOYED_WEB_APP_URL')) {
-                alert('⚠️ ВАЖНО: Замените GOOGLE_SCRIPT_URL в коде на ваш реальный URL Google Apps Script Web App!');
-                document.getElementById('loading').innerHTML = '<p class="text-red-600 text-center">Ошибка конфигурации: не указан URL Google Apps Script</p>';
+            // Validate SheetDB URL
+            if (SHEETDB_API_URL.includes('YOUR_SHEETDB_ID_HERE')) {
+                alert('⚠️ ВАЖНО: Замените SHEETDB_API_URL в коде на ваш реальный SheetDB API URL!');
+                document.getElementById('loading').innerHTML = '<p class="text-red-600 text-center">Ошибка конфигурации: не указан URL SheetDB</p>';
                 return;
             }
             
@@ -424,7 +328,7 @@
                 currency: document.getElementById('currency').value,
                 payment_number: document.getElementById('payment_number').value.trim(),
                 contract_total_amount: parseFloat(document.getElementById('contract_total_amount').value) || 0,
-                contract_signed: document.getElementById('contract_signed').checked,
+                contract_signed: document.getElementById('contract_signed').checked ? 'true' : 'false',
                 direction: document.getElementById('direction').value.trim(),
                 contract_details: document.getElementById('contract_details').value.trim(),
                 received_by: document.getElementById('received_by').value.trim()
@@ -449,16 +353,14 @@
                     result = await createIncome(formData);
                 }
                 
-                if (result.success) {
-                    await loadIncomes();
-                    toggleForm();
-                    resetForm();
-                } else {
-                    throw new Error(result.error || 'Неизвестная ошибка при сохранении');
-                }
+                await loadIncomes();
+                toggleForm();
+                resetForm();
+                showMessage('✅ Данные успешно сохранены!', 'success');
+                
             } catch (error) {
                 console.error('Save error:', error);
-                alert('Ошибка при сохранении: ' + error.message + '\n\nПроверьте:\n1. URL Google Apps Script\n2. Настройки доступа Web App\n3. Структуру Google Sheet');
+                showMessage('❌ Ошибка при сохранении: ' + error.message, 'error');
             } finally {
                 saveBtn.innerHTML = originalText;
                 saveBtn.disabled = false;
@@ -502,27 +404,18 @@
             
             noRecords.classList.add('hidden');
             tbody.innerHTML = incomes.map(income => {
-                const isUpdated = income.updated_date && income.created_date && 
-                                new Date(income.updated_date) > new Date(income.created_date);
-                const rowClass = isUpdated ? 'bg-blue-50' : '';
-                
                 return `
-                    <tr class="${rowClass} hover:bg-slate-100 transition-colors">
+                    <tr class="hover:bg-slate-100 transition-colors">
                         <td class="p-3 font-medium text-slate-700 whitespace-nowrap">
-                            <div>${formatDate(income.date)}</div>
-                            <div class="text-xs text-slate-400">${formatTime(income.created_date)}</div>
+                            ${formatDate(income.date)}
                         </td>
                         <td class="p-3 font-semibold">${income.client_last_name || ''} ${income.client_first_name || ''}</td>
                         <td class="p-3 font-bold text-blue-600 whitespace-nowrap">
-                            ${(parseFloat(income.payment_amount) || 0).toLocaleString('ru-RU')} ${income.currency || 'RUB'}
+                            ${formatCurrency(income.payment_amount || 0, income.currency || 'RUB')}
                         </td>
                         <td class="p-3">${income.payment_number || '-'}</td>
-                        <td class="p-3 text-slate-600 whitespace-nowrap">
-                            ${(parseFloat(income.contract_total_amount) || 0) ? 
-                              (parseFloat(income.contract_total_amount) || 0).toLocaleString('ru-RU') : '-'}
-                        </td>
                         <td class="p-3">
-                            ${(income.contract_signed === 'true' || income.contract_signed === true) ? 
+                            ${(income.contract_signed === 'true') ? 
                               '<i class="fas fa-check-circle text-green-500"></i>' : 
                               '<i class="fas fa-times-circle text-slate-400"></i>'}
                         </td>
@@ -551,7 +444,99 @@
                 .reduce((sum, income) => sum + (parseFloat(income.payment_amount) || 0), 0);
             
             document.getElementById('totalIncome').textContent = 
-                `Итого по отфильтрованным (RUB): ${total.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })}`;
+                `Итого по отфильтрованным (RUB): ${formatCurrency(total, 'RUB')}`;
         }
         
         function toggleForm() {
+            const form = document.getElementById('incomeForm');
+            const btn = document.getElementById('toggleFormBtn');
+            const text = document.getElementById('formToggleText');
+            
+            if (form.classList.contains('hidden')) {
+                form.classList.remove('hidden');
+                text.textContent = 'Скрыть форму';
+            } else {
+                form.classList.add('hidden');
+                text.textContent = 'Добавить платеж';
+            }
+        }
+        
+        function resetForm() {
+            document.getElementById('incomeFormElement').reset();
+            document.getElementById('date').valueAsDate = new Date();
+            document.getElementById('incomeId').value = '';
+            editingIncome = null;
+            document.getElementById('formTitle').textContent = 'Новый платеж';
+        }
+        
+        function editIncome(id) {
+            const income = currentIncomes.find(i => i.id === id);
+            if (!income) return;
+            
+            editingIncome = income;
+            document.getElementById('formTitle').textContent = 'Редактировать платеж';
+            
+            // Fill form
+            document.getElementById('client_last_name').value = income.client_last_name || '';
+            document.getElementById('client_first_name').value = income.client_first_name || '';
+            document.getElementById('date').value = income.date || '';
+            document.getElementById('payment_amount').value = income.payment_amount || '';
+            document.getElementById('currency').value = income.currency || 'RUB';
+            document.getElementById('payment_number').value = income.payment_number || '';
+            document.getElementById('contract_total_amount').value = income.contract_total_amount || '';
+            document.getElementById('contract_signed').checked = income.contract_signed === 'true';
+            document.getElementById('direction').value = income.direction || '';
+            document.getElementById('contract_details').value = income.contract_details || '';
+            document.getElementById('received_by').value = income.received_by || '';
+            
+            toggleForm();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        async function deleteIncomeConfirm(id) {
+            if (confirm('Вы уверены, что хотите удалить этот платеж?')) {
+                try {
+                    await deleteIncome(id);
+                    await loadIncomes();
+                    showMessage('✅ Платеж успешно удален!', 'success');
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    showMessage('❌ Ошибка при удалении: ' + error.message, 'error');
+                }
+            }
+        }
+        
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = currentIncomes.filter(income => {
+                return Object.values(income).some(value => 
+                    String(value).toLowerCase().includes(searchTerm)
+                );
+            });
+            renderIncomeList(filtered);
+            updateTotalIncome(filtered);
+        });
+        
+        function showMessage(text, type) {
+            // Create message element if it doesn't exist
+            let messageDiv = document.getElementById('statusMessage');
+            if (!messageDiv) {
+                messageDiv = document.createElement('div');
+                messageDiv.id = 'statusMessage';
+                messageDiv.className = 'fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg';
+                document.body.appendChild(messageDiv);
+            }
+            
+            messageDiv.textContent = text;
+            messageDiv.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
