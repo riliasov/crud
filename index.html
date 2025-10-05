@@ -17,7 +17,8 @@
         body { font-family: 'Inter', sans-serif; }
         .fade-in { animation: fadeIn 0.25s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .flatpickr-calendar { font-size: 16px; }
+        .flatpickr-calendar { width: 250px; font-size: 14px; }
+        select { height: 40px; } /* Match input height */
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
@@ -30,9 +31,22 @@
     const CLIENTS_CSV_URL = 'https://docs.google.com/spreadsheets/d/1fd2AGVMwOzs8U8wdBaNmnpD42peEommBpMe0dMA07Bg/export?format=csv&gid=1710193411';
 </script>
 
-<div class="min-h-screen flex">
+<div class="min-h-screen flex flex-col md:flex-row">
     <!-- Sidebar -->
-    <div class="w-64 bg-white border-r border-slate-200 hidden md:block">
+    <div class="w-full md:w-64 bg-white border-b md:border-r border-slate-200 md:hidden block">
+        <div class="p-6 border-b border-slate-200">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-coins text-white text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-slate-900 text-xl">Учет доходов</h2>
+                    <p class="text-xs text-slate-500">Все платежи в одном месте</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hidden md:block w-64 bg-white border-r border-slate-200">
         <div class="p-6 border-b border-slate-200">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -84,54 +98,58 @@
                                 <input id="date" required class="w-full px-3 py-2 border rounded-lg" placeholder="Выберите дату">
                             </div>
                             <div>
+                                <label class="text-sm font-medium">Номер платежа *</label>
+                                <input id="payment_number" required class="w-full px-3 py-2 border rounded-lg">
+                            </div>
+                            <div>
                                 <label class="text-sm font-medium">Сумма платежа *</label>
                                 <input type="number" id="payment_amount" step="0.01" min="0" required class="w-full px-3 py-2 border rounded-lg">
                             </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label class="text-sm font-medium">Валюта</label>
                                 <select id="currency" class="w-full px-3 py-2 border rounded-lg">
                                     <option>RUB</option>
                                     <option>USD</option>
                                     <option>EUR</option>
+                                    <option>USDT</option>
+                                    <option>Другое</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium">Направление *</label>
+                                <select id="direction" required class="w-full px-3 py-2 border rounded-lg">
+                                    <option value="Kids">Kids</option>
+                                    <option value="Passport">Passport</option>
+                                    <option value="Home">Home</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium">Кто получил *</label>
+                                <select id="received_by" required class="w-full px-3 py-2 border rounded-lg">
+                                    <option value="Ильясов">Ильясов</option>
+                                    <option value="Лукьянов">Лукьянов</option>
+                                    <option value="Другие">Другие</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="text-sm font-medium">Номер платежа</label>
-                                <input id="payment_number" class="w-full px-3 py-2 border rounded-lg">
-                            </div>
-
-                            <div>
-                                <label class="text-sm font-medium">Направление *</label>
-                                <select id="direction" required class="w-full px-3 py-2 border rounded-lg">
-                                    <option value="">-- Выберите --</option>
-                                    <option value="Kids">Kids</option>
-                                    <option value="Passport">Passport</option>
-                                    <option value="Home">Home</option>
-                                </select>
-                                <p id="directionHint" class="text-xs text-slate-400 mt-1">Доступные: Kids / Passport / Home</p>
-                            </div>
-
-                            <div>
-                                <label class="text-sm font-medium">Кто получил *</label>
-                                <select id="received_by" required class="w-full px-3 py-2 border rounded-lg">
-                                    <option value="">-- Выберите --</option>
-                                    <option value="Ильясов">Ильясов</option>
-                                    <option value="Лукьянов">Лукьянов</option>
-                                    <option value="Другие">Другие (уточнить)</option>
+                                <label class="text-sm font-medium">Пакет</label>
+                                <select id="package_type" class="w-full px-3 py-2 border rounded-lg">
+                                    <option value="Комфорт">Комфорт</option>
+                                    <option value="Премиум">Премиум</option>
+                                    <option value="ВНЖ/ПМЖ">ВНЖ/ПМЖ</option>
+                                    <option value="Другое">Другое</option>
                                 </select>
                             </div>
-                        </div>
-
-                        <div id="otherReceivedBlock" class="hidden">
-                            <label class="text-sm font-medium">Уточнение (кто именно получил)</label>
-                            <input id="received_by_other" class="w-full px-3 py-2 border rounded-lg" placeholder="Уточните имя/должность">
                         </div>
 
                         <div>
-                            <label class="text-sm font-medium">Пакет / Примечание</label>
+                            <label class="text-sm font-medium">Примечание</label>
                             <textarea id="contract_details" rows="3" class="w-full px-3 py-2 border rounded-lg"></textarea>
                         </div>
 
@@ -285,7 +303,20 @@
 
     function formatDateForTable(value){
         if (!value) return '-';
-        try { const d = new Date(value); return d.toLocaleString('ru-RU'); } catch { return value; }
+        try {
+            const d = new Date(value);
+            return d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'});
+        } catch { return value; }
+    }
+
+    function formatTimestamp(value){
+        if (!value) return '-';
+        try {
+            const d = new Date(value);
+            const dateStr = d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'});
+            const timeStr = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+            return `${dateStr} <span class="text-sm text-gray-500">${timeStr}</span>`;
+        } catch { return value; }
     }
 
     async function onSubmitForm(e){
@@ -298,14 +329,35 @@
         const paymentNumber = document.getElementById('payment_number').value.trim();
         const direction = document.getElementById('direction').value;
         const received = document.getElementById('received_by').value;
-        const receivedOther = document.getElementById('received_by_other').value.trim();
+        const packageType = document.getElementById('package_type').value;
         const details = document.getElementById('contract_details').value.trim();
 
         if (!last || !first || !date) { alert('Пожалуйста заполните Фамилию, Имя и Дату платежа'); return; }
         if (!direction || !['Kids','Passport','Home'].includes(direction)) { alert('Выберите корректное Направление (Kids/Passport/Home)'); return; }
         if (!received) { alert('Выберите кто получил'); return; }
-        if (received === 'Другие' && !receivedOther) { alert('Уточните кто получил в примечании'); return; }
         if (isNaN(parseFloat(amount)) || parseFloat(amount) < 0) { alert('Сумма должна быть числом >= 0'); return; }
+        if (!paymentNumber) { alert('Номер платежа обязателен'); return; }
+
+        // Payment number check
+        const clientKey = `${last.toLowerCase()} ${first.toLowerCase()}`;
+        const clientPayments = currentIncomes.filter(i => `${i.client_last_name.toLowerCase()} ${i.client_first_name.toLowerCase()}` === clientKey && i.id !== (editingIncome ? editingIncome.id : null));
+        const existingNumbers = clientPayments.map(i => parseInt(i.payment_number || 0)).filter(n => !isNaN(n));
+        const maxExisting = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+        const newNumber = parseInt(paymentNumber);
+        if (!isNaN(newNumber) && newNumber <= maxExisting) {
+            alert('Некорректный номер платежа - проверь (существует платеж с таким же номером или большим)');
+            return;
+        }
+
+        let requiredNotes = [];
+        if (currency === 'Другое') requiredNotes.push('Валюта оплаты - указать');
+        if (packageType === 'Другое') requiredNotes.push('Пакет - указать');
+        if (received === 'Другие') requiredNotes.push('Уточнить получателя оплаты');
+
+        if (requiredNotes.length > 0 && !details) {
+            alert(`Заполните Примечания:\n${requiredNotes.join('\n')}`);
+            return;
+        }
 
         const saveBtn = document.getElementById('saveBtn');
         const oldText = saveBtn.innerHTML;
@@ -314,47 +366,30 @@
 
         try {
             const timestamp = nowISO();
+            const payload = {
+                data: [
+                    {
+                        id: editingIncome ? editingIncome.id : genReadableId(last, paymentNumber),
+                        client_last_name: last,
+                        client_first_name: first,
+                        date: date,
+                        payment_amount: amount,
+                        currency: currency,
+                        payment_number: paymentNumber,
+                        direction: direction,
+                        received_by: received,
+                        package_type: packageType,
+                        contract_details: details,
+                        created_at: editingIncome ? (editingIncome.created_at || timestamp) : timestamp,
+                        updated_at: timestamp
+                    }
+                ]
+            };
+
             if (editingIncome) {
-                const payload = {
-                    data: [
-                        {
-                            client_last_name: last,
-                            client_first_name: first,
-                            date: date,
-                            payment_amount: amount,
-                            currency: currency,
-                            payment_number: paymentNumber,
-                            direction: direction,
-                            received_by: (received === 'Другие') ? `Другие (${receivedOther})` : received,
-                            contract_details: details,
-                            id: editingIncome.id,
-                            created_at: editingIncome.created_at || timestamp,
-                            updated_at: timestamp
-                        }
-                    ]
-                };
                 await updateIncomeAPI(editingIncome.id, payload);
                 showMessage('✅ Обновлено', 'success');
             } else {
-                const id = genReadableId(last, paymentNumber);
-                const payload = {
-                    data: [
-                        {
-                            id: id,
-                            client_last_name: last,
-                            client_first_name: first,
-                            date: date,
-                            payment_amount: amount,
-                            currency: currency,
-                            payment_number: paymentNumber,
-                            direction: direction,
-                            received_by: (received === 'Другие') ? `Другие (${receivedOther})` : received,
-                            contract_details: details,
-                            created_at: timestamp,
-                            updated_at: timestamp
-                        }
-                    ]
-                };
                 await createIncomeAPI(payload);
                 showMessage('✅ Создано', 'success');
             }
@@ -371,11 +406,7 @@
         }
     }
 
-    function onReceivedByChange(){
-        const val = document.getElementById('received_by').value;
-        const block = document.getElementById('otherReceivedBlock');
-        if (val === 'Другие') block.classList.remove('hidden'); else block.classList.add('hidden');
-    }
+    function onReceivedByChange(){ /* Removed other block */ }
 
     async function loadIncomes(){
         document.getElementById('loading').classList.remove('hidden');
@@ -405,8 +436,8 @@
                     <td class="p-2">${escapeHtml(item.payment_number||'')}</td>
                     <td class="p-2">${escapeHtml(item.direction||'')}</td>
                     <td class="p-2">${escapeHtml(item.received_by||'')}</td>
-                    <td class="p-2">${formatDateForTable(item.created_at)}</td>
-                    <td class="p-2">${formatDateForTable(item.updated_at)}</td>
+                    <td class="p-2">${formatTimestamp(item.created_at)}</td>
+                    <td class="p-2">${formatTimestamp(item.updated_at)}</td>
                     <td class="p-2 text-right">
                         <div class="inline-flex gap-1">
                             <button onclick="onEdit('${escapeJs(item.id||'')}')" class="p-2 hover:bg-blue-50 rounded"><i class="fas fa-edit"></i></button>
@@ -432,15 +463,8 @@
         document.getElementById('currency').value = item.currency || 'RUB';
         document.getElementById('payment_number').value = item.payment_number || '';
         document.getElementById('direction').value = item.direction || '';
-        if (item.received_by && item.received_by.startsWith('Другие')){
-            document.getElementById('received_by').value = 'Другие';
-            document.getElementById('received_by_other').value = item.received_by.replace(/^Другие\s*\(?/,'').replace(/\)?$/,'');
-            document.getElementById('otherReceivedBlock').classList.remove('hidden');
-        } else {
-            document.getElementById('received_by').value = item.received_by || '';
-            document.getElementById('otherReceivedBlock').classList.add('hidden');
-            document.getElementById('received_by_other').value = '';
-        }
+        document.getElementById('received_by').value = item.received_by || '';
+        document.getElementById('package_type').value = item.package_type || '';
         document.getElementById('contract_details').value = item.contract_details || '';
         if (document.getElementById('incomeForm').classList.contains('hidden')) toggleForm();
         window.scrollTo({top:0, behavior:'smooth'});
@@ -476,8 +500,6 @@
         document.getElementById('incomeId').value = '';
         editingIncome = null;
         document.getElementById('formTitle').textContent = "Новый платеж";
-        document.getElementById('otherReceivedBlock').classList.add('hidden');
-        document.getElementById('received_by_other').value = '';
     }
 
     function showMessage(text, type){
