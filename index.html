@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Учет доходов - Full CRUD (обновл.)</title>
+    <title>Учет доходов - Full CRUD (demo + SheetDB)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -17,24 +17,23 @@
         body { font-family: 'Inter', sans-serif; }
         .fade-in { animation: fadeIn 0.25s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Сделаем flatpickr чуть крупнее для удобства */
         .flatpickr-calendar { font-size: 16px; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
 
-<!-- IMPORTANT: Replace SHEETDB_API_URL with your SheetDB URL (or your own API endpoint) -->
 <script>
+    // Set your SheetDB URL here. If left as the placeholder, app will work in LOCAL DEMO mode (localStorage).
     const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/d667e1b70zn9o';
 
-    // Google Sheets CSV export for clients list (must be public or accessible)
-    // Replace only the spreadsheetId/gid if different
+    // Public CSV export of the clients sheet you provided
     const CLIENTS_CSV_URL = 'https://docs.google.com/spreadsheets/d/1fd2AGVMwOzs8U8wdBaNmnpD42peEommBpMe0dMA07Bg/export?format=csv&gid=1710193411';
+
+    // If SHEETDB_API_URL contains 'YOUR_SHEETDB_ID_HERE' we switch to localStorage demo mode
+    const USE_SHEETDB = !SHEETDB_API_URL.includes('https://sheetdb.io/api/v1/d667e1b70zn9o');
 </script>
 
 <div class="min-h-screen flex">
-    <!-- Sidebar -->
     <div class="w-64 bg-white border-r border-slate-200 hidden md:block">
         <div class="p-6 border-b border-slate-200">
             <div class="flex items-center gap-3">
@@ -43,26 +42,26 @@
                 </div>
                 <div>
                     <h2 class="font-bold text-slate-900 text-xl">Учет доходов</h2>
-                    <p class="text-xs text-slate-500">Все платежи в одном месте</p>
+                    <p class="text-xs text-slate-500">CRUD — SheetDB или локальный режим</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Main -->
     <main class="flex-1 p-4 md:p-8">
         <div class="max-w-screen-2xl mx-auto space-y-6">
             <div class="flex justify-between items-center">
                 <div>
                     <h1 class="text-3xl font-bold">Учет доходов</h1>
-                    <p class="text-slate-600">Обновлённая форма: удобный календарь, валидация и читабельный ID.</p>
+                    <p class="text-slate-600">Крупный календарь, валидация, читаемый ID, created/updated. Режим: <span id="modeLabel">...</span></p>
                 </div>
-                <button id="toggleFormBtn" onclick="toggleForm()" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-lg">
-                    <i class="fas fa-plus mr-2"></i><span id="formToggleText">Добавить платеж</span>
-                </button>
+                <div class="flex items-center gap-3">
+                    <button id="toggleFormBtn" onclick="toggleForm()" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-plus mr-2"></i><span id="formToggleText">Добавить платеж</span>
+                    </button>
+                </div>
             </div>
 
-            <!-- Form -->
             <div id="incomeForm" class="hidden fade-in">
                 <div class="bg-white border rounded-xl shadow-lg p-6 max-w-4xl mx-auto">
                     <h2 id="formTitle" class="text-xl font-bold mb-4">Новый платеж</h2>
@@ -71,12 +70,12 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="text-sm font-medium">Фамилия клиента *</label>
-                                <input list="lastNames" id="client_last_name" required class="w-full px-3 py-2 border rounded-lg">
+                                <input list="lastNames" id="client_last_name" required class="w-full px-3 py-2 border rounded-lg" autocomplete="off">
                                 <datalist id="lastNames"></datalist>
                             </div>
                             <div>
                                 <label class="text-sm font-medium">Имя клиента *</label>
-                                <input list="firstNames" id="client_first_name" required class="w-full px-3 py-2 border rounded-lg">
+                                <input list="firstNames" id="client_first_name" required class="w-full px-3 py-2 border rounded-lg" autocomplete="off">
                                 <datalist id="firstNames"></datalist>
                             </div>
                         </div>
@@ -146,7 +145,6 @@
                 </div>
             </div>
 
-            <!-- List -->
             <div id="loading" class="text-center py-8">
                 <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                 <p class="mt-2 text-slate-600">Загрузка данных...</p>
@@ -185,7 +183,6 @@
 </div>
 
 <script>
-    // flatpickr init
     flatpickr.localize(flatpickr.l10ns.ru);
     flatpickr('#date', {
         altInput: true,
@@ -195,106 +192,98 @@
         allowInput: true,
     });
 
-    // State
     let currentIncomes = [];
     let editingIncome = null;
-    let clients = []; // {last, first}
+    let clients = [];
 
     document.addEventListener('DOMContentLoaded', async () => {
-        // Basic config check
-        if (SHEETDB_API_URL.includes('YOUR_SHEETDB_ID_HERE')) {
-            alert('Замените SHEETDB_API_URL в коде на ваш реальный SheetDB API URL перед использованием.');
-            document.getElementById('loading').innerHTML = '<p class="text-red-600">Ошибка конфигурации: не указан SHEETDB_API_URL</p>';
-            return;
-        }
+        document.getElementById('modeLabel').textContent = USE_SHEETDB ? 'SheetDB' : 'LOCAL (localStorage)';
 
-        // Load clients list from Google Sheets CSV (optional - sheet must be public)
-        try {
-            const resp = await fetch(CLIENTS_CSV_URL);
-            if (!resp.ok) throw new Error('Не удалось загрузить список клиентов (проверьте доступность таблицы)');
-            const csv = await resp.text();
-            parseClientsCsv(csv);
-        } catch (e) {
-            console.warn('Clients CSV load failed:', e.message);
-            // It's ok: user can input names manually
-        }
+        // Try to load clients CSV (no throw) - if fails, continues
+        try { const resp = await fetch(CLIENTS_CSV_URL); if (resp.ok) { const csv = await resp.text(); parseClientsCsv(csv); } }
+        catch(e){ console.warn('clients load failed', e); }
 
         await loadIncomes();
-
-        // listeners
         document.getElementById('incomeFormElement').addEventListener('submit', onSubmitForm);
         document.getElementById('received_by').addEventListener('change', onReceivedByChange);
         document.getElementById('searchInput').addEventListener('input', onSearch);
     });
 
     function parseClientsCsv(csv) {
-        // Very simple CSV parse (assumes two first columns are last,first)
-        const rows = csv.split('\n').map(r => r.trim()).filter(r => r);
+        const rows = csv.split('\n').map(r=>r.trim()).filter(r=>r);
         const list = [];
         rows.forEach((row, idx) => {
-            // skip header if header contains non-cyrillic or known header words
             if (idx === 0 && /Фамилия|Имя/i.test(row)) return;
-            const cols = row.split(',').map(c => c.replace(/^"|"$/g,'').trim());
-            if (cols.length >= 2) {
-                list.push({ last: cols[0], first: cols[1] });
-            }
+            const cols = row.split(',').map(c => c.replace(/^\"|\"$/g,'').trim());
+            if (cols.length >= 2) list.push({ last: cols[0], first: cols[1] });
         });
         clients = list;
-        // populate datalists
-        const lastSet = new Set();
-        const firstSet = new Set();
+        const lastSet = new Set(); const firstSet = new Set();
         clients.forEach(c => { if (c.last) lastSet.add(c.last); if (c.first) firstSet.add(c.first); });
-        const lastNames = document.getElementById('lastNames');
-        const firstNames = document.getElementById('firstNames');
-        lastNames.innerHTML = Array.from(lastSet).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
-        firstNames.innerHTML = Array.from(firstSet).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
+        document.getElementById('lastNames').innerHTML = Array.from(lastSet).map(v=>`<option value="${escapeHtml(v)}"></option>`).join('');
+        document.getElementById('firstNames').innerHTML = Array.from(firstSet).map(v=>`<option value="${escapeHtml(v)}"></option>`).join('');
 
-        // auto-fill first name when last name uniquely matches
-        document.getElementById('client_last_name').addEventListener('change', (e) => {
+        document.getElementById('client_last_name').addEventListener('change', (e)=>{
             const val = e.target.value.trim();
-            const matches = clients.filter(c => c.last === val);
-            if (matches.length === 1) document.getElementById('client_first_name').value = matches[0].first;
+            const matches = clients.filter(c=>c.last===val);
+            if (matches.length===1) document.getElementById('client_first_name').value = matches[0].first;
         });
     }
 
-    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
 
-    // --- CRUD via SheetDB ---
-    async function fetchIncomes() {
-        const res = await fetch(SHEETDB_API_URL);
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        return Array.isArray(data) ? data : [];
+    // --- Backend wrappers ---
+    async function fetchIncomesAPI(){
+        if (USE_SHEETDB) {
+            const res = await fetch(SHEETDB_API_URL);
+            if (!res.ok) throw new Error(await res.text());
+            return await res.json();
+        } else {
+            return JSON.parse(localStorage.getItem('demo_incomes_v1') || '[]');
+        }
     }
 
-    async function createIncomeAPI(record) {
-        const res = await fetch(SHEETDB_API_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(record)
-        });
-        if (!res.ok) throw new Error(`Server: ${res.status}`);
-        return await res.json();
+    async function createIncomeAPI(payload){
+        if (USE_SHEETDB) {
+            const res = await fetch(SHEETDB_API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if (!res.ok) throw new Error(await res.text());
+            return await res.json();
+        } else {
+            const list = JSON.parse(localStorage.getItem('demo_incomes_v1') || '[]');
+            list.push(...payload.data);
+            localStorage.setItem('demo_incomes_v1', JSON.stringify(list));
+            return { success: true };
+        }
     }
 
-    async function updateIncomeAPI(id, record) {
-        // SheetDB supports /id/<id> for updates
-        const res = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, {
-            method: 'PUT', headers:{ 'Content-Type': 'application/json' }, body: JSON.stringify(record)
-        });
-        if (!res.ok) throw new Error(`Server: ${res.status}`);
-        return await res.json();
+    async function updateIncomeAPI(id, payload){
+        if (USE_SHEETDB) {
+            const res = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if (!res.ok) throw new Error(await res.text());
+            return await res.json();
+        } else {
+            let list = JSON.parse(localStorage.getItem('demo_incomes_v1') || '[]');
+            list = list.map(it => it.id === id ? payload.data[0] : it);
+            localStorage.setItem('demo_incomes_v1', JSON.stringify(list));
+            return { success: true };
+        }
     }
 
-    async function deleteIncomeAPI(id) {
-        const res = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error(`Server: ${res.status}`);
-        return true;
+    async function deleteIncomeAPI(id){
+        if (USE_SHEETDB) {
+            const res = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, { method:'DELETE' });
+            if (!res.ok) throw new Error(await res.text());
+            return true;
+        } else {
+            let list = JSON.parse(localStorage.getItem('demo_incomes_v1') || '[]');
+            list = list.filter(it => it.id !== id);
+            localStorage.setItem('demo_incomes_v1', JSON.stringify(list));
+            return true;
+        }
     }
 
-    // --- helpers ---
-    function genReadableId(lastName, paymentNumber) {
-        const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
+    function genReadableId(lastName, paymentNumber){
+        const now = new Date(); const pad = n=>String(n).padStart(2,'0');
         const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
         const last = (lastName||'noName').replace(/[^a-zA-Z0-9а-яА-ЯёЁ]/g,'').slice(0,20);
         const pay = (paymentNumber||'').replace(/[^a-zA-Z0-9]/g,'') || Math.floor(Math.random()*9000+1000);
@@ -302,13 +291,8 @@
     }
 
     function nowISO(){ return new Date().toISOString(); }
+    function formatDateForTable(value){ if (!value) return '-'; try { const d=new Date(value); return d.toLocaleString('ru-RU'); } catch { return value; } }
 
-    function formatDateForTable(value){
-        if (!value) return '-';
-        try { const d = new Date(value); return d.toLocaleString('ru-RU'); } catch { return value; }
-    }
-
-    // --- form submit ---
     async function onSubmitForm(e){
         e.preventDefault();
         const last = document.getElementById('client_last_name').value.trim();
@@ -323,110 +307,79 @@
         const details = document.getElementById('contract_details').value.trim();
 
         // Validation
-        if (!last || !first || !date) { alert('Пожалуйста заполните Фамилию, Имя и Дату платежа'); return; }
-        if (!direction || !['Kids','Passport','Home'].includes(direction)) { alert('Выберите корректное Направление (Kids/Passport/Home)'); return; }
-        if (!received) { alert('Выберите кто получил'); return; }
-        if (received === 'Другие' && !receivedOther) { alert('Уточните кто получил в примечании'); return; }
-        if (isNaN(parseFloat(amount)) || parseFloat(amount) < 0) { alert('Сумма должна быть числом >= 0'); return; }
+        if (!last || !first || !date) { return showMessage('Пожалуйста заполните Фамилию, Имя и Дату платежа','error'); }
+        if (!direction || !['Kids','Passport','Home'].includes(direction)) { return showMessage('Выберите корректное Направление (Kids/Passport/Home)','error'); }
+        if (!received) { return showMessage('Выберите кто получил','error'); }
+        if (received === 'Другие' && !receivedOther) { return showMessage('Уточните кто получил в примечании','error'); }
+        if (isNaN(parseFloat(amount)) || parseFloat(amount) < 0) { return showMessage('Сумма должна быть числом >= 0','error'); }
 
         const saveBtn = document.getElementById('saveBtn');
-        const oldText = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Сохранение...';
-        saveBtn.disabled = true;
+        const oldText = saveBtn.innerHTML; saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Сохранение...'; saveBtn.disabled = true;
 
-        try {
+        try{
             const timestamp = nowISO();
             if (editingIncome) {
-                // Update
-                const payload = {
-                    data: [
-                        {
-                            client_last_name: last,
-                            client_first_name: first,
-                            date: date,
-                            payment_amount: amount,
-                            currency: currency,
-                            payment_number: paymentNumber,
-                            direction: direction,
-                            received_by: (received === 'Другие') ? `Другие (${receivedOther})` : received,
-                            contract_details: details,
-                            id: editingIncome.id, // ensure id present
-                            created_at: editingIncome.created_at || timestamp,
-                            updated_at: timestamp
-                        }
-                    ]
+                const updated = {
+                    id: editingIncome.id,
+                    client_last_name: last,
+                    client_first_name: first,
+                    date: date,
+                    payment_amount: amount,
+                    currency: currency,
+                    payment_number: paymentNumber,
+                    direction: direction,
+                    received_by: (received==='Другие')?`Другие (${receivedOther})`:received,
+                    contract_details: details,
+                    created_at: editingIncome.created_at || timestamp,
+                    updated_at: timestamp
                 };
-                await updateIncomeAPI(editingIncome.id, payload);
-                showMessage('✅ Обновлено', 'success');
+                await updateIncomeAPI(editingIncome.id, { data: [updated] });
+                showMessage('✅ Обновлено','success');
             } else {
-                // Create
                 const id = genReadableId(last, paymentNumber);
-                const payload = {
-                    data: [
-                        {
-                            id: id,
-                            client_last_name: last,
-                            client_first_name: first,
-                            date: date,
-                            payment_amount: amount,
-                            currency: currency,
-                            payment_number: paymentNumber,
-                            direction: direction,
-                            received_by: (received === 'Другие') ? `Другие (${receivedOther})` : received,
-                            contract_details: details,
-                            created_at: timestamp,
-                            updated_at: timestamp
-                        }
-                    ]
+                const record = {
+                    id: id,
+                    client_last_name: last,
+                    client_first_name: first,
+                    date: date,
+                    payment_amount: amount,
+                    currency: currency,
+                    payment_number: paymentNumber,
+                    direction: direction,
+                    received_by: (received==='Другие')?`Другие (${receivedOther})`:received,
+                    contract_details: details,
+                    created_at: timestamp,
+                    updated_at: timestamp
                 };
-                await createIncomeAPI(payload);
-                showMessage('✅ Создано', 'success');
+                await createIncomeAPI({ data: [record] });
+                showMessage('✅ Создано','success');
             }
-
-            await loadIncomes();
-            toggleForm();
-            resetForm();
-        } catch (err) {
-            console.error(err);
-            showMessage('Ошибка: ' + (err.message || err), 'error');
-        } finally {
-            saveBtn.innerHTML = oldText;
-            saveBtn.disabled = false;
-        }
+            await loadIncomes(); toggleForm(); resetForm();
+        } catch(err){ console.error(err); showMessage('Ошибка: '+(err.message||err),'error'); }
+        finally{ saveBtn.innerHTML = oldText; saveBtn.disabled = false; }
     }
 
-    function onReceivedByChange(){
-        const val = document.getElementById('received_by').value;
-        const block = document.getElementById('otherReceivedBlock');
-        if (val === 'Другие') block.classList.remove('hidden'); else block.classList.add('hidden');
-    }
+    function onReceivedByChange(){ const val=document.getElementById('received_by').value; const block=document.getElementById('otherReceivedBlock'); if(val==='Другие') block.classList.remove('hidden'); else block.classList.add('hidden'); }
 
-    // --- load and render ---
-    async function loadIncomes(){
-        document.getElementById('loading').classList.remove('hidden');
-        document.getElementById('incomeList').classList.add('hidden');
-        try {
-            const data = await fetchIncomes();
-            currentIncomes = data.map(d => ({ ...d }));
+    async function loadIncomes(){ document.getElementById('loading').classList.remove('hidden'); document.getElementById('incomeList').classList.add('hidden');
+        try{
+            const data = await fetchIncomesAPI();
+            currentIncomes = Array.isArray(data) ? data : [];
+            // normalize: ensure created_at/updated_at exist
+            currentIncomes = currentIncomes.map(it => ({ ...it, created_at: it.created_at || it.createdAt || it.created || null, updated_at: it.updated_at || it.updatedAt || it.updated || null }));
             renderIncomeList(currentIncomes);
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('incomeList').classList.remove('hidden');
-        } catch (e) {
-            console.error(e);
-            document.getElementById('loading').innerHTML = `<p class="text-red-600">Ошибка загрузки: ${escapeHtml(e.message || e)}</p>`;
-        }
+            document.getElementById('loading').classList.add('hidden'); document.getElementById('incomeList').classList.remove('hidden');
+        } catch(e){ console.error(e); document.getElementById('loading').innerHTML = `<p class="text-red-600">Ошибка загрузки: ${escapeHtml(e.message||e)}</p>`; }
     }
 
-    function renderIncomeList(list){
-        const tbody = document.getElementById('incomeTableBody');
-        if (!list || list.length === 0) { tbody.innerHTML = '<tr><td class="p-4 text-center" colspan="9">Платежей нет</td></tr>'; return; }
-        tbody.innerHTML = list.map(item => {
-            const client = `${item.client_last_name || ''} ${item.client_first_name || ''}`.trim();
+    function renderIncomeList(list){ const tbody=document.getElementById('incomeTableBody'); if(!list||list.length===0){ tbody.innerHTML='<tr><td class="p-4 text-center" colspan="9">Платежей нет</td></tr>'; return; }
+        tbody.innerHTML = list.map(item=>{
+            const client = `${item.client_last_name||''} ${item.client_first_name||''}`.trim();
             return `
                 <tr class="hover:bg-slate-50">
                     <td class="p-2">${formatDateForTable(item.date)}</td>
                     <td class="p-2">${escapeHtml(client)}</td>
-                    <td class="p-2">${escapeHtml(item.payment_amount || '')} ${escapeHtml(item.currency||'')}</td>
+                    <td class="p-2">${escapeHtml(item.payment_amount||'')} ${escapeHtml(item.currency||'')}</td>
                     <td class="p-2">${escapeHtml(item.payment_number||'')}</td>
                     <td class="p-2">${escapeHtml(item.direction||'')}</td>
                     <td class="p-2">${escapeHtml(item.received_by||'')}</td>
@@ -443,57 +396,31 @@
         }).join('');
     }
 
-    function escapeJs(s){ return String(s).replace(/'/g,"\\'"); }
+    function escapeJs(s){ return String(s||'').replace(/'/g,"\\'"); }
 
-    async function onEdit(id){
-        const item = currentIncomes.find(x => x.id === id);
-        if (!item) return alert('Не найдено');
-        editingIncome = item;
-        document.getElementById('formTitle').textContent = 'Редактировать платеж';
+    async function onEdit(id){ const item = currentIncomes.find(x=>x.id===id); if(!item) return showMessage('Не найдено','error'); editingIncome = item; document.getElementById('formTitle').textContent='Редактировать платеж';
         document.getElementById('client_last_name').value = item.client_last_name || '';
         document.getElementById('client_first_name').value = item.client_first_name || '';
-        document.getElementById('date')._flatpickr.setDate(item.date || new Date());
+        try{ document.getElementById('date')._flatpickr.setDate(item.date || new Date()); } catch(e){ document.getElementById('date').value = item.date || ''; }
         document.getElementById('payment_amount').value = item.payment_amount || '';
         document.getElementById('currency').value = item.currency || 'RUB';
         document.getElementById('payment_number').value = item.payment_number || '';
         document.getElementById('direction').value = item.direction || '';
-        // received_by may include 'Другие (...')
-        if (item.received_by && item.received_by.startsWith('Другие')){
-            document.getElementById('received_by').value = 'Другие';
-            document.getElementById('received_by_other').value = item.received_by.replace(/^Другие\s*\(?/,'').replace(/\)?$/,'');
-            document.getElementById('otherReceivedBlock').classList.remove('hidden');
-        } else {
-            document.getElementById('received_by').value = item.received_by || '';
-            document.getElementById('otherReceivedBlock').classList.add('hidden');
-            document.getElementById('received_by_other').value = '';
-        }
+        if(item.received_by && item.received_by.startsWith('Другие')){ document.getElementById('received_by').value='Другие'; document.getElementById('received_by_other').value = item.received_by.replace(/^Другие\s*\(?/,'').replace(/\)?$/,''); document.getElementById('otherReceivedBlock').classList.remove('hidden'); }
+        else { document.getElementById('received_by').value = item.received_by || ''; document.getElementById('otherReceivedBlock').classList.add('hidden'); document.getElementById('received_by_other').value = ''; }
         document.getElementById('contract_details').value = item.contract_details || '';
-        if (document.getElementById('incomeForm').classList.contains('hidden')) toggleForm();
-        window.scrollTo({top:0, behavior:'smooth'});
+        if(document.getElementById('incomeForm').classList.contains('hidden')) toggleForm(); window.scrollTo({top:0, behavior:'smooth'});
     }
 
-    async function onDelete(id){
-        if (!confirm('Удалить запись?')) return;
-        try { await deleteIncomeAPI(id); showMessage('Удалено', 'success'); await loadIncomes(); } catch (e){ showMessage('Ошибка удаления: '+e.message, 'error'); }
-    }
+    async function onDelete(id){ if(!confirm('Удалить запись?')) return; try{ await deleteIncomeAPI(id); showMessage('Удалено','success'); await loadIncomes(); } catch(e){ showMessage('Ошибка удаления: '+(e.message||e),'error'); } }
 
-    // search
-    function onSearch(e){
-        const q = e.target.value.toLowerCase();
-        const filtered = currentIncomes.filter(item => JSON.stringify(item).toLowerCase().includes(q));
-        renderIncomeList(filtered);
-    }
+    function onSearch(e){ const q = e.target.value.toLowerCase(); const filtered = currentIncomes.filter(item => JSON.stringify(item).toLowerCase().includes(q)); renderIncomeList(filtered); }
 
-    function toggleForm(){ const f = document.getElementById('incomeForm'); const t = document.getElementById('formToggleText'); if (f.classList.contains('hidden')){ f.classList.remove('hidden'); t.textContent='Скрыть форму'; } else { f.classList.add('hidden'); t.textContent='Добавить платеж'; resetForm(); }}
+    function toggleForm(){ const f=document.getElementById('incomeForm'); const t=document.getElementById('formToggleText'); if(f.classList.contains('hidden')){ f.classList.remove('hidden'); t.textContent='Скрыть форму'; } else { f.classList.add('hidden'); t.textContent='Добавить платеж'; resetForm(); } }
 
-    function resetForm(){ document.getElementById('incomeFormElement').reset(); document.getElementById('date')._flatpickr.setDate(new Date()); document.getElementById('incomeId').value = ''; editingIncome = null; document.getElementById('formTitle').textContent='Новый платеж'; document.getElementById('otherReceivedBlock').classList.add('hidden'); }
+    function resetForm(){ document.getElementById('incomeFormElement').reset(); try{ document.getElementById('date')._flatpickr.setDate(new Date()); }catch(e){} document.getElementById('incomeId').value=''; editingIncome=null; document.getElementById('formTitle').textContent='Новый платеж'; document.getElementById('otherReceivedBlock').classList.add('hidden'); }
 
-    function showMessage(text, type){
-        let el = document.getElementById('statusMessage');
-        if (!el){ el = document.createElement('div'); el.id='statusMessage'; el.className='fixed top-4 right-4 z-50 p-3 rounded shadow'; document.body.appendChild(el); }
-        el.textContent = text; el.className = 'fixed top-4 right-4 z-50 p-3 rounded shadow '+(type==='success'?'bg-green-600 text-white':'bg-red-600 text-white');
-        setTimeout(()=>{ el.remove(); },4000);
-    }
+    function showMessage(text, type){ let el=document.getElementById('statusMessage'); if(!el){ el=document.createElement('div'); el.id='statusMessage'; el.className='fixed top-4 right-4 z-50 p-3 rounded shadow'; document.body.appendChild(el);} el.textContent=text; el.className='fixed top-4 right-4 z-50 p-3 rounded shadow '+(type==='success'?'bg-green-600 text-white':'bg-red-600 text-white'); setTimeout(()=>{ el.remove(); },4000); }
 
 </script>
 </body>
