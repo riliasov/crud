@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- flatpickr (большой удобный календарь) -->
+    <!-- flatpickr (уменьшенный календарь) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
@@ -17,7 +17,7 @@
         body { font-family: 'Inter', sans-serif; }
         .fade-in { animation: fadeIn 0.25s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .flatpickr-calendar { width: 250px; font-size: 14px; }
+        .flatpickr-calendar { width: 220px; font-size: 12px; }
         select { height: 40px; } /* Match input height */
     </style>
 </head>
@@ -33,27 +33,27 @@
 
 <div class="min-h-screen flex flex-col md:flex-row">
     <!-- Sidebar -->
-    <div class="w-full md:w-64 bg-white border-b md:border-r border-slate-200 md:hidden block">
+    <div class="w-full md:w-48 bg-white border-b md:border-r border-slate-200 md:hidden block">
         <div class="p-6 border-b border-slate-200">
             <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <i class="fas fa-coins text-white text-xl"></i>
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-coins text-white text-lg"></i>
                 </div>
                 <div>
-                    <h2 class="font-bold text-slate-900 text-xl">Учет доходов</h2>
+                    <h2 class="font-bold text-slate-900 text-lg">Учет доходов</h2>
                     <p class="text-xs text-slate-500">Все платежи в одном месте</p>
                 </div>
             </div>
         </div>
     </div>
-    <div class="hidden md:block w-64 bg-white border-r border-slate-200">
+    <div class="hidden md:block w-48 bg-white border-r border-slate-200">
         <div class="p-6 border-b border-slate-200">
             <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <i class="fas fa-coins text-white text-xl"></i>
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-coins text-white text-lg"></i>
                 </div>
                 <div>
-                    <h2 class="font-bold text-slate-900 text-xl">Учет доходов</h2>
+                    <h2 class="font-bold text-slate-900 text-lg">Учет доходов</h2>
                     <p class="text-xs text-slate-500">Все платежи в одном месте</p>
                 </div>
             </div>
@@ -194,7 +194,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </main>
 </div>
@@ -228,7 +227,9 @@
         await loadIncomes();
 
         document.getElementById('incomeFormElement').addEventListener('submit', onSubmitForm);
-        document.getElementById('received_by').addEventListener('change', onReceivedByChange);
+        document.getElementById('currency').addEventListener('change', updateNotes);
+        document.getElementById('package_type').addEventListener('change', updateNotes);
+        document.getElementById('received_by').addEventListener('change', updateNotes);
         document.getElementById('searchInput').addEventListener('input', onSearch);
     });
 
@@ -258,7 +259,7 @@
         });
     }
 
-    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     async function fetchIncomes() {
         const res = await fetch(SHEETDB_API_URL);
@@ -278,7 +279,7 @@
 
     async function updateIncomeAPI(id, record) {
         const res = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, {
-            method: 'PUT', headers:{ 'Content-Type': 'application/json' }, body: JSON.stringify(record)
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(record)
         });
         if (!res.ok) throw new Error(`Server: ${res.status}`);
         return await res.json();
@@ -299,9 +300,9 @@
         return `${ts}_${last}_${pay}`;
     }
 
-    function nowISO(){ return new Date().toISOString(); }
+    function nowISO() { return new Date().toISOString(); }
 
-    function formatDateForTable(value){
+    function formatDateForTable(value) {
         if (!value) return '-';
         try {
             const d = new Date(value);
@@ -309,7 +310,7 @@
         } catch { return value; }
     }
 
-    function formatTimestamp(value){
+    function formatTimestamp(value) {
         if (!value) return '-';
         try {
             const d = new Date(value);
@@ -319,7 +320,22 @@
         } catch { return value; }
     }
 
-    async function onSubmitForm(e){
+    function updateNotes() {
+        const currency = document.getElementById('currency').value;
+        const packageType = document.getElementById('package_type').value;
+        const received = document.getElementById('received_by').value;
+        const notesField = document.getElementById('contract_details');
+        let notes = [];
+
+        if (currency === 'Другое') notes.push('Валюта оплаты - указать');
+        if (packageType === 'Другое') notes.push('Пакет - указать');
+        if (received === 'Другие') notes.push('Уточнить получателя оплаты');
+
+        notesField.value = notes.length > 0 ? notes.join('\n') : '';
+        notesField.required = notes.length > 0;
+    }
+
+    async function onSubmitForm(e) {
         e.preventDefault();
         const last = document.getElementById('client_last_name').value.trim();
         const first = document.getElementById('client_first_name').value.trim();
@@ -406,9 +422,7 @@
         }
     }
 
-    function onReceivedByChange(){ /* Removed other block */ }
-
-    async function loadIncomes(){
+    async function loadIncomes() {
         document.getElementById('loading').classList.remove('hidden');
         document.getElementById('incomeList').classList.add('hidden');
         try {
@@ -423,7 +437,7 @@
         }
     }
 
-    function renderIncomeList(list){
+    function renderIncomeList(list) {
         const tbody = document.getElementById('incomeTableBody');
         if (!list || list.length === 0) { tbody.innerHTML = '<tr><td class="p-4 text-center" colspan="9">Платежей нет</td></tr>'; return; }
         tbody.innerHTML = list.map(item => {
@@ -449,9 +463,9 @@
         }).join('');
     }
 
-    function escapeJs(s){ return String(s).replace(/'/g,"\\'"); }
+    function escapeJs(s) { return String(s).replace(/'/g,"\\'"); }
 
-    async function onEdit(id){
+    async function onEdit(id) {
         const item = currentIncomes.find(x => x.id === id);
         if (!item) return alert('Не найдено');
         editingIncome = item;
@@ -466,25 +480,26 @@
         document.getElementById('received_by').value = item.received_by || '';
         document.getElementById('package_type').value = item.package_type || '';
         document.getElementById('contract_details').value = item.contract_details || '';
+        updateNotes();
         if (document.getElementById('incomeForm').classList.contains('hidden')) toggleForm();
         window.scrollTo({top:0, behavior:'smooth'});
     }
 
-    async function onDelete(id){
+    async function onDelete(id) {
         if (!confirm('Удалить запись?')) return;
-        try { await deleteIncomeAPI(id); showMessage('Удалено', 'success'); await loadIncomes(); } catch (e){ showMessage('Ошибка удаления: '+e.message, 'error'); }
+        try { await deleteIncomeAPI(id); showMessage('Удалено', 'success'); await loadIncomes(); } catch (e) { showMessage('Ошибка удаления: '+e.message, 'error'); }
     }
 
-    function onSearch(e){
+    function onSearch(e) {
         const q = e.target.value.toLowerCase();
         const filtered = currentIncomes.filter(item => JSON.stringify(item).toLowerCase().includes(q));
         renderIncomeList(filtered);
     }
 
-    function toggleForm(){
+    function toggleForm() {
         const f = document.getElementById('incomeForm');
         const t = document.getElementById('formToggleText');
-        if (f.classList.contains('hidden')){
+        if (f.classList.contains('hidden')) {
             f.classList.remove('hidden');
             t.textContent = "Скрыть форму";
         } else {
@@ -494,19 +509,21 @@
         }
     }
 
-    function resetForm(){
+    function resetForm() {
         document.getElementById('incomeFormElement').reset();
         document.getElementById('date')._flatpickr.setDate(new Date());
         document.getElementById('incomeId').value = '';
+        document.getElementById('contract_details').required = false;
         editingIncome = null;
         document.getElementById('formTitle').textContent = "Новый платеж";
+        updateNotes();
     }
 
-    function showMessage(text, type){
+    function showMessage(text, type) {
         let el = document.getElementById('statusMessage');
-        if (!el){ el = document.createElement('div'); el.id='statusMessage'; el.className='fixed top-4 right-4 z-50 p-3 rounded shadow'; document.body.appendChild(el); }
+        if (!el) { el = document.createElement('div'); el.id='statusMessage'; el.className='fixed top-4 right-4 z-50 p-3 rounded shadow'; document.body.appendChild(el); }
         el.textContent = text; el.className = 'fixed top-4 right-4 z-50 p-3 rounded shadow '+(type==='success'?'bg-green-600 text-white':'bg-red-600 text-white');
-        setTimeout(()=>{ el.remove(); },4000);
+        setTimeout(() => { el.remove(); }, 4000);
     }
 </script>
 </body>
