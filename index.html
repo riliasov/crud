@@ -1,530 +1,85 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Учет доходов - Full CRUD (обновл.)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+function onChange(e) {
+  var sheet = e.source.getActiveSheet();
+  var changeType = e.changeType;
+  var email = 'riliasov@list.ru';
+  var subject, body;
 
-    <!-- flatpickr (уменьшенный календарь) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+  if (changeType === 'INSERT_ROW') {
+    // Новая запись добавлена
+    var lastRow = sheet.getLastRow();
+    var data = sheet.getRange(lastRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var record = {};
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.25s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .flatpickr-calendar { width: 220px; font-size: 12px; }
-        select { height: 40px; } /* Match input height */
-    </style>
-</head>
-<body class="bg-slate-50 min-h-screen">
-
-<!-- SheetDB API URL is set below -->
-<script>
-    // ✅ Your SheetDB API URL is set here:
-    const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/d667e1b70zn9o';
-
-    const CLIENTS_CSV_URL = 'https://docs.google.com/spreadsheets/d/1fd2AGVMwOzs8U8wdBaNmnpD42peEommBpMe0dMA07Bg/export?format=csv&gid=1710193411';
-</script>
-
-<div class="min-h-screen flex flex-col md:flex-row">
-    <!-- Sidebar -->
-    <div class="w-full md:w-48 bg-white border-b md:border-r border-slate-200 md:hidden block">
-        <div class="p-6 border-b border-slate-200">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <i class="fas fa-coins text-white text-lg"></i>
-                </div>
-                <div>
-                    <h2 class="font-bold text-slate-900 text-lg">Учет доходов</h2>
-                    <p class="text-xs text-slate-500">Все платежи в одном месте</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="hidden md:block w-48 bg-white border-r border-slate-200">
-        <div class="p-6 border-b border-slate-200">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <i class="fas fa-coins text-white text-lg"></i>
-                </div>
-                <div>
-                    <h2 class="font-bold text-slate-900 text-lg">Учет доходов</h2>
-                    <p class="text-xs text-slate-500">Все платежи в одном месте</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main -->
-    <main class="flex-1 p-4 md:p-8">
-        <div class="max-w-screen-2xl mx-auto space-y-6">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h1 class="text-3xl font-bold">Учет доходов</h1>
-                    <p class="text-slate-600">Обновлённая форма: удобный календарь, валидация и читабельный ID.</p>
-                </div>
-                <button id="toggleFormBtn" onclick="toggleForm()" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-lg">
-                    <i class="fas fa-plus mr-2"></i><span id="formToggleText">Добавить платеж</span>
-                </button>
-            </div>
-
-            <!-- Form -->
-            <div id="incomeForm" class="hidden fade-in">
-                <div class="bg-white border rounded-xl shadow-lg p-6 max-w-4xl mx-auto">
-                    <h2 id="formTitle" class="text-xl font-bold mb-4">Новый платеж</h2>
-                    <form id="incomeFormElement" class="space-y-4">
-                        <input type="hidden" id="incomeId">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-sm font-medium">Фамилия клиента *</label>
-                                <input list="lastNames" id="client_last_name" required class="w-full px-3 py-2 border rounded-lg">
-                                <datalist id="lastNames"></datalist>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium">Имя клиента *</label>
-                                <input list="firstNames" id="client_first_name" required class="w-full px-3 py-2 border rounded-lg">
-                                <datalist id="firstNames"></datalist>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="text-sm font-medium">Дата платежа *</label>
-                                <input id="date" required class="w-full px-3 py-2 border rounded-lg" placeholder="Выберите дату">
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium">Номер платежа *</label>
-                                <input id="payment_number" required class="w-full px-3 py-2 border rounded-lg">
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium">Сумма платежа *</label>
-                                <input type="number" id="payment_amount" step="0.01" min="0" required class="w-full px-3 py-2 border rounded-lg">
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="text-sm font-medium">Валюта</label>
-                                <select id="currency" class="w-full px-3 py-2 border rounded-lg">
-                                    <option>RUB</option>
-                                    <option>USD</option>
-                                    <option>EUR</option>
-                                    <option>USDT</option>
-                                    <option>Другое</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium">Направление *</label>
-                                <select id="direction" required class="w-full px-3 py-2 border rounded-lg">
-                                    <option value="Kids">Kids</option>
-                                    <option value="Passport">Passport</option>
-                                    <option value="Home">Home</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium">Кто получил *</label>
-                                <select id="received_by" required class="w-full px-3 py-2 border rounded-lg">
-                                    <option value="Ильясов">Ильясов</option>
-                                    <option value="Лукьянов">Лукьянов</option>
-                                    <option value="Другие">Другие</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="text-sm font-medium">Пакет</label>
-                                <select id="package_type" class="w-full px-3 py-2 border rounded-lg">
-                                    <option value="Комфорт">Комфорт</option>
-                                    <option value="Премиум">Премиум</option>
-                                    <option value="ВНЖ/ПМЖ">ВНЖ/ПМЖ</option>
-                                    <option value="Другое">Другое</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="text-sm font-medium">Примечание</label>
-                            <textarea id="contract_details" rows="3" class="w-full px-3 py-2 border rounded-lg"></textarea>
-                        </div>
-
-                        <div class="flex justify-end gap-3">
-                            <button type="button" onclick="toggleForm()" class="px-4 py-2 border rounded-lg">Отмена</button>
-                            <button type="submit" id="saveBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Сохранить</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- List -->
-            <div id="loading" class="text-center py-8">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <p class="mt-2 text-slate-600">Загрузка данных...</p>
-            </div>
-
-            <div id="incomeList" class="hidden">
-                <div class="bg-white border rounded-xl shadow-sm p-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-bold">Список платежей</h2>
-                        <input id="searchInput" placeholder="Поиск..." class="px-3 py-2 border rounded-lg">
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th class="p-2 text-left">Дата</th>
-                                    <th class="p-2 text-left">Клиент</th>
-                                    <th class="p-2 text-left">Сумма</th>
-                                    <th class="p-2 text-left">№ платежа</th>
-                                    <th class="p-2 text-left">Напр.</th>
-                                    <th class="p-2 text-left">Получил</th>
-                                    <th class="p-2 text-left">Created</th>
-                                    <th class="p-2 text-left">Updated</th>
-                                    <th class="p-2 text-right">Действия</th>
-                                </tr>
-                            </thead>
-                            <tbody id="incomeTableBody" class="divide-y"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-</div>
-
-<script>
-    // flatpickr init
-    flatpickr.localize(flatpickr.l10ns.ru);
-    flatpickr('#date', {
-        altInput: true,
-        altFormat: "d.m.Y",
-        dateFormat: "Y-m-d",
-        defaultDate: new Date(),
-        allowInput: true,
+    // Сопоставляем данные с заголовками
+    headers.forEach((header, index) => {
+      record[header] = data[index] || '';
     });
 
-    let currentIncomes = [];
-    let editingIncome = null;
-    let clients = [];
+    subject = 'Новая запись добавлена';
+    body = 'Новая запись добавлена:\n' +
+           'ID: ' + record.id + '\n' +
+           'Клиент: ' + record.client_last_name + ' ' + record.client_first_name + '\n' +
+           'Дата: ' + (record.date ? new Date(record.date).toLocaleDateString('ru-RU') : '-') + '\n' +
+           'Сумма: ' + record.payment_amount + ' ' + record.currency + '\n' +
+           'Номер платежа: ' + record.payment_number + '\n' +
+           'Направление: ' + record.direction + '\n' +
+           'Получил: ' + record.received_by + '\n' +
+           'Пакет: ' + record.package_type + '\n' +
+           'Примечания: ' + record.contract_details + '\n' +
+           'Создано: ' + (record.created_at ? new Date(record.created_at).toLocaleString('ru-RU') : '-');
+  } else if (changeType === 'EDIT') {
+    // Запись изменена
+    var editedRange = e.source.getActiveRange();
+    var row = editedRange.getRow();
+    if (row === 1) return; // Пропускаем изменение заголовков
+    var data = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var record = {};
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        // Load clients list from Google Sheets CSV (optional - sheet must be public)
-        try {
-            const resp = await fetch(CLIENTS_CSV_URL);
-            if (!resp.ok) throw new Error('Не удалось загрузить список клиентов (проверьте доступность таблицы)');
-            const csv = await resp.text();
-            parseClientsCsv(csv);
-        } catch (e) {
-            console.warn('Clients CSV load failed:', e.message);
-        }
-
-        await loadIncomes();
-
-        document.getElementById('incomeFormElement').addEventListener('submit', onSubmitForm);
-        document.getElementById('currency').addEventListener('change', updateNotes);
-        document.getElementById('package_type').addEventListener('change', updateNotes);
-        document.getElementById('received_by').addEventListener('change', updateNotes);
-        document.getElementById('searchInput').addEventListener('input', onSearch);
+    headers.forEach((header, index) => {
+      record[header] = data[index] || '';
     });
 
-    function parseClientsCsv(csv) {
-        const rows = csv.split('\n').map(r => r.trim()).filter(r => r);
-        const list = [];
-        rows.forEach((row, idx) => {
-            if (idx === 0 && /Фамилия|Имя/i.test(row)) return;
-            const cols = row.split(',').map(c => c.replace(/^"|"$/g,'').trim());
-            if (cols.length >= 2) {
-                list.push({ last: cols[0], first: cols[1] });
-            }
-        });
-        clients = list;
-        const lastSet = new Set();
-        const firstSet = new Set();
-        clients.forEach(c => { if (c.last) lastSet.add(c.last); if (c.first) firstSet.add(c.first); });
-        const lastNames = document.getElementById('lastNames');
-        const firstNames = document.getElementById('firstNames');
-        lastNames.innerHTML = Array.from(lastSet).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
-        firstNames.innerHTML = Array.from(firstSet).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
+    subject = 'Запись обновлена';
+    body = 'Запись обновлена:\n' +
+           'ID: ' + record.id + '\n' +
+           'Клиент: ' + record.client_last_name + ' ' + record.client_first_name + '\n' +
+           'Дата: ' + (record.date ? new Date(record.date).toLocaleDateString('ru-RU') : '-') + '\n' +
+           'Сумма: ' + record.payment_amount + ' ' + record.currency + '\n' +
+           'Номер платежа: ' + record.payment_number + '\n' +
+           'Направление: ' + record.direction + '\n' +
+           'Получил: ' + record.received_by + '\n' +
+           'Пакет: ' + record.package_type + '\n' +
+           'Примечания: ' + record.contract_details + '\n' +
+           'Обновлено: ' + (record.updated_at ? new Date(record.updated_at).toLocaleString('ru-RU') : '-');
+  } else if (changeType === 'REMOVE_ROW') {
+    // Запись удалена (ограниченная поддержка, так как данные уже удалены)
+    subject = 'Запись удалена';
+    body = 'Запись была удалена из таблицы.\n' +
+           'Детали недоступны, так как строка удалена.';
+  } else {
+    return; // Игнорируем другие изменения
+  }
 
-        document.getElementById('client_last_name').addEventListener('change', (e) => {
-            const val = e.target.value.trim();
-            const matches = clients.filter(c => c.last === val);
-            if (matches.length === 1) document.getElementById('client_first_name').value = matches[0].first;
-        });
-    }
+  // Отправка письма
+  MailApp.sendEmail({
+    to: email,
+    subject: subject,
+    body: body
+  });
+}
 
-    function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function setupTrigger() {
+  // Удаляем существующие триггеры
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    ScriptApp.deleteTrigger(triggers[i]);
+  }
 
-    async function fetchIncomes() {
-        const res = await fetch(SHEETDB_API_URL);
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        return Array.isArray(data) ? data : [];
-    }
-
-    async function createIncomeAPI(record) {
-        const res = await fetch(SHEETDB_API_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(record)
-        });
-        if (!res.ok) throw new Error(`Server: ${res.status}`);
-        return await res.json();
-    }
-
-    async function updateIncomeAPI(id, record) {
-        const res = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(record)
-        });
-        if (!res.ok) throw new Error(`Server: ${res.status}`);
-        return await res.json();
-    }
-
-    async function deleteIncomeAPI(id) {
-        const res = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error(`Server: ${res.status}`);
-        return true;
-    }
-
-    function genReadableId(lastName, paymentNumber) {
-        const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-        const last = (lastName||'noName').replace(/[^a-zA-Z0-9а-яА-ЯёЁ]/g,'').slice(0,20);
-        const pay = (paymentNumber||'').replace(/[^a-zA-Z0-9]/g,'') || Math.floor(Math.random()*9000+1000);
-        return `${ts}_${last}_${pay}`;
-    }
-
-    function nowISO() { return new Date().toISOString(); }
-
-    function formatDateForTable(value) {
-        if (!value) return '-';
-        try {
-            const d = new Date(value);
-            return d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'});
-        } catch { return value; }
-    }
-
-    function formatTimestamp(value) {
-        if (!value) return '-';
-        try {
-            const d = new Date(value);
-            const dateStr = d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'});
-            const timeStr = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
-            return `${dateStr} <span class="text-sm text-gray-500">${timeStr}</span>`;
-        } catch { return value; }
-    }
-
-    function updateNotes() {
-        const currency = document.getElementById('currency').value;
-        const packageType = document.getElementById('package_type').value;
-        const received = document.getElementById('received_by').value;
-        const notesField = document.getElementById('contract_details');
-        let notes = [];
-
-        if (currency === 'Другое') notes.push('Валюта оплаты - указать');
-        if (packageType === 'Другое') notes.push('Пакет - указать');
-        if (received === 'Другие') notes.push('Уточнить получателя оплаты');
-
-        notesField.value = notes.length > 0 ? notes.join('\n') : '';
-        notesField.required = notes.length > 0;
-    }
-
-    async function onSubmitForm(e) {
-        e.preventDefault();
-        const last = document.getElementById('client_last_name').value.trim();
-        const first = document.getElementById('client_first_name').value.trim();
-        const date = document.getElementById('date').value;
-        const amount = document.getElementById('payment_amount').value;
-        const currency = document.getElementById('currency').value;
-        const paymentNumber = document.getElementById('payment_number').value.trim();
-        const direction = document.getElementById('direction').value;
-        const received = document.getElementById('received_by').value;
-        const packageType = document.getElementById('package_type').value;
-        const details = document.getElementById('contract_details').value.trim();
-
-        if (!last || !first || !date) { alert('Пожалуйста заполните Фамилию, Имя и Дату платежа'); return; }
-        if (!direction || !['Kids','Passport','Home'].includes(direction)) { alert('Выберите корректное Направление (Kids/Passport/Home)'); return; }
-        if (!received) { alert('Выберите кто получил'); return; }
-        if (isNaN(parseFloat(amount)) || parseFloat(amount) < 0) { alert('Сумма должна быть числом >= 0'); return; }
-        if (!paymentNumber) { alert('Номер платежа обязателен'); return; }
-
-        // Payment number check
-        const clientKey = `${last.toLowerCase()} ${first.toLowerCase()}`;
-        const clientPayments = currentIncomes.filter(i => `${i.client_last_name.toLowerCase()} ${i.client_first_name.toLowerCase()}` === clientKey && i.id !== (editingIncome ? editingIncome.id : null));
-        const existingNumbers = clientPayments.map(i => parseInt(i.payment_number || 0)).filter(n => !isNaN(n));
-        const maxExisting = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
-        const newNumber = parseInt(paymentNumber);
-        if (!isNaN(newNumber) && newNumber <= maxExisting) {
-            alert('Некорректный номер платежа - проверь (существует платеж с таким же номером или большим)');
-            return;
-        }
-
-        let requiredNotes = [];
-        if (currency === 'Другое') requiredNotes.push('Валюта оплаты - указать');
-        if (packageType === 'Другое') requiredNotes.push('Пакет - указать');
-        if (received === 'Другие') requiredNotes.push('Уточнить получателя оплаты');
-
-        if (requiredNotes.length > 0 && !details) {
-            alert(`Заполните Примечания:\n${requiredNotes.join('\n')}`);
-            return;
-        }
-
-        const saveBtn = document.getElementById('saveBtn');
-        const oldText = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Сохранение...';
-        saveBtn.disabled = true;
-
-        try {
-            const timestamp = nowISO();
-            const payload = {
-                data: [
-                    {
-                        id: editingIncome ? editingIncome.id : genReadableId(last, paymentNumber),
-                        client_last_name: last,
-                        client_first_name: first,
-                        date: date,
-                        payment_amount: amount,
-                        currency: currency,
-                        payment_number: paymentNumber,
-                        direction: direction,
-                        received_by: received,
-                        package_type: packageType,
-                        contract_details: details,
-                        created_at: editingIncome ? (editingIncome.created_at || timestamp) : timestamp,
-                        updated_at: timestamp
-                    }
-                ]
-            };
-
-            if (editingIncome) {
-                await updateIncomeAPI(editingIncome.id, payload);
-                showMessage('✅ Обновлено', 'success');
-            } else {
-                await createIncomeAPI(payload);
-                showMessage('✅ Создано', 'success');
-            }
-
-            await loadIncomes();
-            toggleForm();
-            resetForm();
-        } catch (err) {
-            console.error(err);
-            showMessage('Ошибка: ' + (err.message || err), 'error');
-        } finally {
-            saveBtn.innerHTML = oldText;
-            saveBtn.disabled = false;
-        }
-    }
-
-    async function loadIncomes() {
-        document.getElementById('loading').classList.remove('hidden');
-        document.getElementById('incomeList').classList.add('hidden');
-        try {
-            const data = await fetchIncomes();
-            currentIncomes = data.map(d => ({ ...d }));
-            renderIncomeList(currentIncomes);
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('incomeList').classList.remove('hidden');
-        } catch (e) {
-            console.error(e);
-            document.getElementById('loading').innerHTML = `<p class="text-red-600">Ошибка загрузки: ${escapeHtml(e.message || e)}</p>`;
-        }
-    }
-
-    function renderIncomeList(list) {
-        const tbody = document.getElementById('incomeTableBody');
-        if (!list || list.length === 0) { tbody.innerHTML = '<tr><td class="p-4 text-center" colspan="9">Платежей нет</td></tr>'; return; }
-        tbody.innerHTML = list.map(item => {
-            const client = `${item.client_last_name || ''} ${item.client_first_name || ''}`.trim();
-            return `
-                <tr class="hover:bg-slate-50">
-                    <td class="p-2">${formatDateForTable(item.date)}</td>
-                    <td class="p-2">${escapeHtml(client)}</td>
-                    <td class="p-2">${escapeHtml(item.payment_amount || '')} ${escapeHtml(item.currency||'')}</td>
-                    <td class="p-2">${escapeHtml(item.payment_number||'')}</td>
-                    <td class="p-2">${escapeHtml(item.direction||'')}</td>
-                    <td class="p-2">${escapeHtml(item.received_by||'')}</td>
-                    <td class="p-2">${formatTimestamp(item.created_at)}</td>
-                    <td class="p-2">${formatTimestamp(item.updated_at)}</td>
-                    <td class="p-2 text-right">
-                        <div class="inline-flex gap-1">
-                            <button onclick="onEdit('${escapeJs(item.id||'')}')" class="p-2 hover:bg-blue-50 rounded"><i class="fas fa-edit"></i></button>
-                            <button onclick="onDelete('${escapeJs(item.id||'')}')" class="p-2 hover:bg-red-50 rounded"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    function escapeJs(s) { return String(s).replace(/'/g,"\\'"); }
-
-    async function onEdit(id) {
-        const item = currentIncomes.find(x => x.id === id);
-        if (!item) return alert('Не найдено');
-        editingIncome = item;
-        document.getElementById('formTitle').textContent = 'Редактировать платеж';
-        document.getElementById('client_last_name').value = item.client_last_name || '';
-        document.getElementById('client_first_name').value = item.client_first_name || '';
-        document.getElementById('date')._flatpickr.setDate(item.date || new Date());
-        document.getElementById('payment_amount').value = item.payment_amount || '';
-        document.getElementById('currency').value = item.currency || 'RUB';
-        document.getElementById('payment_number').value = item.payment_number || '';
-        document.getElementById('direction').value = item.direction || '';
-        document.getElementById('received_by').value = item.received_by || '';
-        document.getElementById('package_type').value = item.package_type || '';
-        document.getElementById('contract_details').value = item.contract_details || '';
-        updateNotes();
-        if (document.getElementById('incomeForm').classList.contains('hidden')) toggleForm();
-        window.scrollTo({top:0, behavior:'smooth'});
-    }
-
-    async function onDelete(id) {
-        if (!confirm('Удалить запись?')) return;
-        try { await deleteIncomeAPI(id); showMessage('Удалено', 'success'); await loadIncomes(); } catch (e) { showMessage('Ошибка удаления: '+e.message, 'error'); }
-    }
-
-    function onSearch(e) {
-        const q = e.target.value.toLowerCase();
-        const filtered = currentIncomes.filter(item => JSON.stringify(item).toLowerCase().includes(q));
-        renderIncomeList(filtered);
-    }
-
-    function toggleForm() {
-        const f = document.getElementById('incomeForm');
-        const t = document.getElementById('formToggleText');
-        if (f.classList.contains('hidden')) {
-            f.classList.remove('hidden');
-            t.textContent = "Скрыть форму";
-        } else {
-            f.classList.add('hidden');
-            t.textContent = "Добавить платеж";
-            resetForm();
-        }
-    }
-
-    function resetForm() {
-        document.getElementById('incomeFormElement').reset();
-        document.getElementById('date')._flatpickr.setDate(new Date());
-        document.getElementById('incomeId').value = '';
-        document.getElementById('contract_details').required = false;
-        editingIncome = null;
-        document.getElementById('formTitle').textContent = "Новый платеж";
-        updateNotes();
-    }
-
-    function showMessage(text, type) {
-        let el = document.getElementById('statusMessage');
-        if (!el) { el = document.createElement('div'); el.id='statusMessage'; el.className='fixed top-4 right-4 z-50 p-3 rounded shadow'; document.body.appendChild(el); }
-        el.textContent = text; el.className = 'fixed top-4 right-4 z-50 p-3 rounded shadow '+(type==='success'?'bg-green-600 text-white':'bg-red-600 text-white');
-        setTimeout(() => { el.remove(); }, 4000);
-    }
-</script>
-</body>
-</html>
+  // Создаём новый триггер на изменение
+  ScriptApp.newTrigger('onChange')
+    .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+    .onChange()
+    .create();
+}
