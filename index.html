@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учет доходов</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <!-- Google Apps Script URL - REPLACE THIS WITH YOUR DEPLOYED URL -->
+    <script>
+        const GOOGLE_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+        
+        // Generate unique ID
+        function generateId() {
+            return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // Format date for display
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        }
+        
+        function formatTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleTimeString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // API functions
+        async function fetchIncomes() {
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=list`);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error fetching incomes:', error);
+                return [];
+            }
+        }
+        
+        async function createIncome(incomeData) {
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ...incomeData,
+                        id: generateId(),
+                        created_date: new Date().toISOString(),
+                        updated_date: new Date().toISOString()
+                    })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Error creating income:', error);
+                return { error: error.message };
+            }
+        }
+        
+        async function updateIncome(id, incomeData) {
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=update&id=${id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ...incomeData,
+                        updated_date: new Date().toISOString()
+                    })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Error updating income:', error);
+                return { error: error.message };
+            }
+        }
+        
+        async function deleteIncome(id) {
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=delete&id=${id}`, {
+                    method: 'POST'
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Error deleting income:', error);
+                return { error: error.message };
+            }
+        }
+    </script>
+
+    <div class="min-h-screen flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-white border-r border-slate-200 hidden md:block">
+            <div class="p-6 border-b border-slate-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <i class="fas fa-coins text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-slate-900 text-xl">Учет доходов</h2>
+                        <p class="text-xs text-slate-500">Все платежи в одном месте</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-3">
+                <div class="space-y-1">
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg shadow-md">
+                        <i class="fas fa-home"></i>
+                        <span class="font-medium">Платежи</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+                        <i class="fas fa-cog"></i>
+                        <span class="font-medium">Настройки</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col">
+            <!-- Mobile Header -->
+            <header class="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 md:hidden sticky top-0 z-10">
+                <div class="flex items-center gap-3">
+                    <button class="p-2 hover:bg-slate-100 rounded-lg transition-colors" onclick="toggleSidebar()">
+                        <i class="fas fa-bars text-slate-600"></i>
+                    </button>
+                    <h1 class="text-lg font-bold text-slate-900">Учет доходов</h1>
+                </div>
+            </header>
+
+            <div class="flex-1 p-4 md:p-8">
+                <div class="max-w-screen-2xl mx-auto space-y-6">
+                    <!-- Header -->
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Учет доходов</h1>
+                            <p class="text-slate-600 mt-2">Добавляйте и отслеживайте все поступления.</p>
+                        </div>
+                        <button id="toggleFormBtn" onclick="toggleForm()" 
+                                class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-all">
+                            <i class="fas fa-plus"></i>
+                            <span id="formToggleText">Добавить платеж</span>
+                        </button>
+                    </div>
+
+                    <!-- Income Form -->
+                    <div id="incomeForm" class="hidden fade-in">
+                        <div class="bg-white border border-slate-200 rounded-xl shadow-lg p-6 max-w-4xl mx-auto">
+                            <h2 id="formTitle" class="text-xl font-bold text-slate-900 mb-6">Новый платеж</h2>
+                            
+                            <form id="incomeFormElement" class="space-y-6">
+                                <input type="hidden" id="incomeId">
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-slate-700">Фамилия клиента *</label>
+                                        <input type="text" id="client_last_name" required 
+                                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-slate-700">Имя клиента *</label>
+                                        <input type="text" id="client_first_name" required 
+                                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-slate-700">Дата платежа *</label>
+                                        <input type="date" id="date" required 
+                                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-slate-700">Сумма платежа *</label>
+                                        <input type="number" id="payment_amount" step="0.01" min="0" required 
+                                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-slate-700">Валюта</label>
+                                        <select id="currency" 
+                                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                            <option value="RUB">RUB</option>
+                                            <option value="USD">USD</option>
+                                            <option value="EUR">EUR</option>
+                                            <option value="Other">Другая</option>
+                                        </select>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-slate-700">Номер платежа</label>
+                                        <input type="text" id="payment_number" 
+                                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-6 border-t border-slate-200">
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-slate-700">Полная стоимость договора</label>
+                                        <input type="number" id="contract_total_amount" step="0.01" min="0" 
+                                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-slate-700">Направление</label>
+                                        <input type="text" id="direction" 
+                                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                    <div class="flex items-center space-x-2 pt-8">
+                                        <input type="checkbox" id="contract_signed" 
+                                               class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+                                        <label class="text-sm font-medium text-slate-700">Договор подписан</label>
+                                    </div>
+                                </div>
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-slate-700">Пакет / примечание</label>
+                                    <textarea id="contract_details" rows="3" 
+                                              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                </div>
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-slate-700">Кто получил</label>
+                                    <input type="text" id="received_by" 
+                                           class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                
+                                <div class="flex justify-end gap-3 pt-6">
+                                    <button type="button" onclick="toggleForm()" 
+                                            class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+                                        <i class="fas fa-times mr-2"></i>Отмена
+                                    </button>
+                                    <button type="submit" id="saveBtn"
+                                            class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow transition-all">
+                                        <i class="fas fa-save mr-2"></i>Сохранить
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Income List -->
+                    <div id="loading" class="text-center py-8">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <p class="mt-2 text-slate-600">Загрузка данных...</p>
+                    </div>
+                    
+                    <div id="incomeList" class="hidden">
+                        <div class="bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <div class="p-6 border-b border-slate-200">
+                                <div class="flex flex-col md:flex-row justify-between gap-4">
+                                    <div>
+                                        <h2 class="text-lg font-bold text-slate-900">Список платежей</h2>
+                                        <p id="totalIncome" class="text-sm text-blue-600 font-semibold mt-1"></p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="relative">
+                                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                                            <input type="text" id="searchInput" placeholder="Поиск по всем полям..." 
+                                                   class="pl-9 w-full sm:w-64 md:w-80 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        </div>
+                                        <button onclick="exportCSV()" 
+                                                class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                            <i class="fas fa-file-download"></i>
+                                            Экспорт в CSV
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-slate-50 text-xs uppercase">
+                                        <tr>
+                                            <th class="text-left p-3 font-medium text-slate-600">Дата</th>
+                                            <th class="text-left p-3 font-medium text-slate-600">Клиент</th>
+                                            <th class="text-left p-3 font-medium text-slate-600">Сумма</th>
+                                            <th class="text-left p-3 font-medium text-slate-600">№ платежа</th>
+                                            <th class="text-left p-3 font-medium text-slate-600">Стоимость дог.</th>
+                                            <th class="text-left p-3 font-medium text-slate-600">Подписан</th>
+                                            <th class="text-left p-3 font-medium text-slate-600">Направление</th>
+                                            <th class="text-left p-3 font-medium text-slate-600">Получил</th>
+                                            <th class="text-right p-3 font-medium text-slate-600">Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="incomeTableBody" class="divide-y divide-slate-200">
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div id="noRecords" class="hidden py-12 text-center text-slate-400">
+                                Платежи не найдены
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Set today's date as default
+        document.getElementById('date').valueAsDate = new Date();
+        
+        let currentIncomes = [];
+        let editingIncome = null;
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadIncomes();
+        });
+        
+        // Form handling
+        document.getElementById('incomeFormElement').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                client_last_name: document.getElementById('client_last_name').value,
+                client_first_name: document.getElementById('client_first_name').value,
+                date: document.getElementById('date').value,
+                payment_amount: parseFloat(document.getElementById('payment_amount').value) || 0,
+                currency: document.getElementById('currency').value,
+                payment_number: document.getElementById('payment_number').value,
+                contract_total_amount: parseFloat(document.getElementById('contract_total_amount').value) || 0,
+                contract_signed: document.getElementById('contract_signed').checked,
+                direction: document.getElementById('direction').value,
+                contract_details: document.getElementById('contract_details').value,
+                received_by: document.getElementById('received_by').value
+            };
+            
+            const saveBtn = document.getElementById('saveBtn');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Сохранение...';
+            saveBtn.disabled = true;
+            
+            try {
+                let result;
+                if (editingIncome) {
+                    result = await updateIncome(editingIncome.id, formData);
+                } else {
+                    result = await createIncome(formData);
+                }
+                
+                if (result.success) {
+                    await loadIncomes();
+                    toggleForm();
+                    resetForm();
+                } else {
+                    alert('Ошибка при сохранении: ' + (result.error || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка при сохранении: ' + error.message);
+            } finally {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
+        });
+        
+        async function loadIncomes() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('incomeList').classList.add('hidden');
+            
+            try {
+                currentIncomes = await fetchIncomes();
+                renderIncomeList(currentIncomes);
+                updateTotalIncome(currentIncomes);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('incomeList').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading incomes:', error);
+                document.getElementById('loading').innerHTML = '<p class="text-red-600">Ошибка загрузки данных</p>';
+            }
+        }
+        
+        function renderIncomeList(incomes) {
+            const tbody = document.getElementById('incomeTableBody');
+            const noRecords = document.getElementById('noRecords');
+            
+            if (incomes.length === 0) {
+                tbody.innerHTML = '';
+                noRecords.classList.remove('hidden');
+                return;
+            }
+            
+            noRecords.classList.add('hidden');
+            tbody.innerHTML = incomes.map(income => {
+                const isUpdated = new Date(income.updated_date) > new Date(income.created_date);
+                const rowClass = isUpdated ? 'bg-blue-50' : '';
+                
+                return `
+                    <tr class="${rowClass} hover:bg-slate-100 transition-colors">
+                        <td class="p-3 font-medium text-slate-700 whitespace-nowrap">
+                            <div>${formatDate(income.date)}</div>
+                            <div class="text-xs text-slate-400">${formatTime(income.created_date)}</div>
+                        </td>
+                        <td class="p-3 font-semibold">${income.client_last_name} ${income.client_first_name}</td>
+                        <td class="p-3 font-bold text-blue-600 whitespace-nowrap">
+                            ${(parseFloat(income.payment_amount) || 0).toLocaleString('ru-RU')} ${income.currency}
+                        </td>
+                        <td class="p-3">${income.payment_number || '-'}</td>
+                        <td class="p-3 text-slate-600 whitespace-nowrap">
+                            ${(parseFloat(income.contract_total_amount) || 0) ? 
+                              (parseFloat(income.contract_total_amount) || 0).toLocaleString('ru-RU') : '-'}
+                        </td>
+                        <td class="p-3">
+                            ${income.contract_signed === 'true' || income.contract_signed === true ? 
+                              '<i class="fas fa-check-circle text-green-500"></i>' : 
+                              '<i class="fas fa-times-circle text-slate-400"></i>'}
+                        </td>
+                        <td class="p-3">${income.direction || '-'}</td>
+                        <td class="p-3">${income.received_by || '-'}</td>
+                        <td class="p-3 text-right">
+                            <div class="flex justify-end gap-1">
+                                <button onclick="editIncome('${income.id}')" 
+                                        class="p-2 hover:bg-blue-50 hover:text-blue-600 rounded transition-colors">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteIncomeConfirm('${income.id}')" 
+                                        class="p-2 hover:bg-red-50 hover:text-red-600 rounded transition-colors">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function updateTotalIncome(incomes) {
+            const total = incomes
+                .filter(income => income.currency === 'RUB')
+                .reduce((sum, income) => sum + (parseFloat(income.payment_amount) || 0), 0);
+            
+            document.getElementById('totalIncome').textContent = 
+                `Итого по отфильтрованным (RUB): ${total.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })}`;
+        }
+        
+        function toggleForm() {
+            const form = document.getElementById('incomeForm');
+            const btn = document.getElementById('toggleFormBtn');
+            const text = document.getElementById('formToggleText');
+            
+            if (form.classList.contains('hidden')) {
+                form.classList.remove('hidden');
+                text.textContent = 'Скрыть форму';
+            } else {
+                form.classList.add('hidden');
+                text.textContent = 'Добавить платеж';
+            }
+        }
+        
+        function resetForm() {
+            document.getElementById('incomeFormElement').reset();
+            document.getElementById('date').valueAsDate = new Date();
+            document.getElementById('incomeId').value = '';
+            editingIncome = null;
+            document.getElementById('formTitle').textContent = 'Новый платеж';
+        }
+        
+        function editIncome(id) {
+            const income = currentIncomes.find(i => i.id === id);
+            if (!income) return;
+            
+            editingIncome = income;
+            document.getElementById('formTitle').textContent = 'Редактировать платеж';
+            
+            // Fill form
+            document.getElementById('client_last_name').value = income.client_last_name || '';
+            document.getElementById('client_first_name').value = income.client_first_name || '';
+            document.getElementById('date').value = income.date || '';
+            document.getElementById('payment_amount').value = income.payment_amount || '';
+            document.getElementById('currency').value = income.currency || 'RUB';
+            document.getElementById('payment_number').value = income.payment_number || '';
+            document.getElementById('contract_total_amount').value = income.contract_total_amount || '';
+            document.getElementById('contract_signed').checked = income.contract_signed === 'true' || income.contract_signed === true;
+            document.getElementById('direction').value = income.direction || '';
+            document.getElementById('contract_details').value = income.contract_details || '';
+            document.getElementById('received_by').value = income.received_by || '';
+            
+            toggleForm();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        async function deleteIncomeConfirm(id) {
+            if (confirm('Вы уверены, что хотите удалить этот платеж?')) {
+                try {
+                    const result = await deleteIncome(id);
+                    if (result.success) {
+                        await loadIncomes();
+                    } else {
+                        alert('Ошибка при удалении: ' + (result.error || 'Неизвестная ошибка'));
+                    }
+                } catch (error) {
+                    alert('Ошибка при удалении: ' + error.message);
+                }
+            }
+        }
+        
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = currentIncomes.filter(income => {
+                return Object.values(income).some(value => 
+                    String(value).toLowerCase().includes(searchTerm)
+                );
+            });
+            renderIncomeList(filtered);
+            updateTotalIncome(filtered);
+        });
+        
+        // Export to CSV
+        function exportCSV() {
+            const headers = [
+                "Дата платежа", "Время создания", "Клиент", "Сумма", "Валюта", "№ платежа", "Стоимость дог.",
+                "Подписан", "Направление", "Детали", "Получил"
+            ];
+            
+            const rows = currentIncomes.map(income => [
+                formatDate(income.date),
+                formatTime(income.created_date),
+                `${income.client_last_name} ${income.client_first_name}`,
+                income.payment_amount,
+                income.currency,
+                income.payment_number || '',
+                income.contract_total_amount || '',
+                income.contract_signed === 'true' || income.contract_signed === true ? 'Да' : 'Нет',
+                `"${(income.direction || '').replace(/"/g, '""')}"`,
+                `"${(income.contract_details || '').replace(/"/g, '""')}"`,
+                `"${(income.received_by || '').replace(/"/g, '""')}"`
+            ].join(','));
+            
+            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `income_export_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            // This is a simple implementation - you can enhance it further
+            alert('Мобильное меню будет реализовано в полной версии');
+        }
+    </script>
+</body>
+</html>
