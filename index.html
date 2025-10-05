@@ -17,19 +17,16 @@
         body { font-family: 'Inter', sans-serif; }
         .fade-in { animation: fadeIn 0.25s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Сделаем flatpickr чуть крупнее для удобства */
         .flatpickr-calendar { font-size: 16px; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
 
-<!-- IMPORTANT: Replace SHEETDB_API_URL with your SheetDB URL (or your own API endpoint) -->
+<!-- SheetDB API URL is set below -->
 <script>
+    // ✅ Your SheetDB API URL is set here:
     const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/d667e1b70zn9o';
 
-    // Google Sheets CSV export for clients list (must be public or accessible)
-    // Replace only the spreadsheetId/gid if different
     const CLIENTS_CSV_URL = 'https://docs.google.com/spreadsheets/d/1fd2AGVMwOzs8U8wdBaNmnpD42peEommBpMe0dMA07Bg/export?format=csv&gid=1710193411';
 </script>
 
@@ -195,19 +192,11 @@
         allowInput: true,
     });
 
-    // State
     let currentIncomes = [];
     let editingIncome = null;
-    let clients = []; // {last, first}
+    let clients = [];
 
     document.addEventListener('DOMContentLoaded', async () => {
-        // Basic config check
-        if (SHEETDB_API_URL.includes('YOUR_SHEETDB_ID_HERE')) {
-            alert('Замените SHEETDB_API_URL в коде на ваш реальный SheetDB API URL перед использованием.');
-            document.getElementById('loading').innerHTML = '<p class="text-red-600">Ошибка конфигурации: не указан SHEETDB_API_URL</p>';
-            return;
-        }
-
         // Load clients list from Google Sheets CSV (optional - sheet must be public)
         try {
             const resp = await fetch(CLIENTS_CSV_URL);
@@ -216,23 +205,19 @@
             parseClientsCsv(csv);
         } catch (e) {
             console.warn('Clients CSV load failed:', e.message);
-            // It's ok: user can input names manually
         }
 
         await loadIncomes();
 
-        // listeners
         document.getElementById('incomeFormElement').addEventListener('submit', onSubmitForm);
         document.getElementById('received_by').addEventListener('change', onReceivedByChange);
         document.getElementById('searchInput').addEventListener('input', onSearch);
     });
 
     function parseClientsCsv(csv) {
-        // Very simple CSV parse (assumes two first columns are last,first)
         const rows = csv.split('\n').map(r => r.trim()).filter(r => r);
         const list = [];
         rows.forEach((row, idx) => {
-            // skip header if header contains non-cyrillic or known header words
             if (idx === 0 && /Фамилия|Имя/i.test(row)) return;
             const cols = row.split(',').map(c => c.replace(/^"|"$/g,'').trim());
             if (cols.length >= 2) {
@@ -240,7 +225,6 @@
             }
         });
         clients = list;
-        // populate datalists
         const lastSet = new Set();
         const firstSet = new Set();
         clients.forEach(c => { if (c.last) lastSet.add(c.last); if (c.first) firstSet.add(c.first); });
@@ -249,7 +233,6 @@
         lastNames.innerHTML = Array.from(lastSet).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
         firstNames.innerHTML = Array.from(firstSet).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
 
-        // auto-fill first name when last name uniquely matches
         document.getElementById('client_last_name').addEventListener('change', (e) => {
             const val = e.target.value.trim();
             const matches = clients.filter(c => c.last === val);
@@ -259,7 +242,6 @@
 
     function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-    // --- CRUD via SheetDB ---
     async function fetchIncomes() {
         const res = await fetch(SHEETDB_API_URL);
         if (!res.ok) throw new Error(await res.text());
@@ -277,7 +259,6 @@
     }
 
     async function updateIncomeAPI(id, record) {
-        // SheetDB supports /id/<id> for updates
         const res = await fetch(`${SHEETDB_API_URL}/id/${encodeURIComponent(id)}`, {
             method: 'PUT', headers:{ 'Content-Type': 'application/json' }, body: JSON.stringify(record)
         });
@@ -291,7 +272,6 @@
         return true;
     }
 
-    // --- helpers ---
     function genReadableId(lastName, paymentNumber) {
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
@@ -308,7 +288,6 @@
         try { const d = new Date(value); return d.toLocaleString('ru-RU'); } catch { return value; }
     }
 
-    // --- form submit ---
     async function onSubmitForm(e){
         e.preventDefault();
         const last = document.getElementById('client_last_name').value.trim();
@@ -322,7 +301,6 @@
         const receivedOther = document.getElementById('received_by_other').value.trim();
         const details = document.getElementById('contract_details').value.trim();
 
-        // Validation
         if (!last || !first || !date) { alert('Пожалуйста заполните Фамилию, Имя и Дату платежа'); return; }
         if (!direction || !['Kids','Passport','Home'].includes(direction)) { alert('Выберите корректное Направление (Kids/Passport/Home)'); return; }
         if (!received) { alert('Выберите кто получил'); return; }
@@ -337,7 +315,6 @@
         try {
             const timestamp = nowISO();
             if (editingIncome) {
-                // Update
                 const payload = {
                     data: [
                         {
@@ -350,7 +327,7 @@
                             direction: direction,
                             received_by: (received === 'Другие') ? `Другие (${receivedOther})` : received,
                             contract_details: details,
-                            id: editingIncome.id, // ensure id present
+                            id: editingIncome.id,
                             created_at: editingIncome.created_at || timestamp,
                             updated_at: timestamp
                         }
@@ -359,7 +336,6 @@
                 await updateIncomeAPI(editingIncome.id, payload);
                 showMessage('✅ Обновлено', 'success');
             } else {
-                // Create
                 const id = genReadableId(last, paymentNumber);
                 const payload = {
                     data: [
@@ -401,7 +377,6 @@
         if (val === 'Другие') block.classList.remove('hidden'); else block.classList.add('hidden');
     }
 
-    // --- load and render ---
     async function loadIncomes(){
         document.getElementById('loading').classList.remove('hidden');
         document.getElementById('incomeList').classList.add('hidden');
@@ -457,7 +432,6 @@
         document.getElementById('currency').value = item.currency || 'RUB';
         document.getElementById('payment_number').value = item.payment_number || '';
         document.getElementById('direction').value = item.direction || '';
-        // received_by may include 'Другие (...')
         if (item.received_by && item.received_by.startsWith('Другие')){
             document.getElementById('received_by').value = 'Другие';
             document.getElementById('received_by_other').value = item.received_by.replace(/^Другие\s*\(?/,'').replace(/\)?$/,'');
@@ -477,16 +451,34 @@
         try { await deleteIncomeAPI(id); showMessage('Удалено', 'success'); await loadIncomes(); } catch (e){ showMessage('Ошибка удаления: '+e.message, 'error'); }
     }
 
-    // search
     function onSearch(e){
         const q = e.target.value.toLowerCase();
         const filtered = currentIncomes.filter(item => JSON.stringify(item).toLowerCase().includes(q));
         renderIncomeList(filtered);
     }
 
-    function toggleForm(){ const f = document.getElementById('incomeForm'); const t = document.getElementById('formToggleText'); if (f.classList.contains('hidden')){ f.classList.remove('hidden'); t.textContent='Скрыть форму'; } else { f.classList.add('hidden'); t.textContent='Добавить платеж'; resetForm(); }}
+    function toggleForm(){
+        const f = document.getElementById('incomeForm');
+        const t = document.getElementById('formToggleText');
+        if (f.classList.contains('hidden')){
+            f.classList.remove('hidden');
+            t.textContent = "Скрыть форму";
+        } else {
+            f.classList.add('hidden');
+            t.textContent = "Добавить платеж";
+            resetForm();
+        }
+    }
 
-    function resetForm(){ document.getElementById('incomeFormElement').reset(); document.getElementById('date')._flatpickr.setDate(new Date()); document.getElementById('incomeId').value = ''; editingIncome = null; document.getElementById('formTitle').textContent='Новый платеж'; document.getElementById('otherReceivedBlock').classList.add('hidden'); }
+    function resetForm(){
+        document.getElementById('incomeFormElement').reset();
+        document.getElementById('date')._flatpickr.setDate(new Date());
+        document.getElementById('incomeId').value = '';
+        editingIncome = null;
+        document.getElementById('formTitle').textContent = "Новый платеж";
+        document.getElementById('otherReceivedBlock').classList.add('hidden');
+        document.getElementById('received_by_other').value = '';
+    }
 
     function showMessage(text, type){
         let el = document.getElementById('statusMessage');
@@ -494,7 +486,6 @@
         el.textContent = text; el.className = 'fixed top-4 right-4 z-50 p-3 rounded shadow '+(type==='success'?'bg-green-600 text-white':'bg-red-600 text-white');
         setTimeout(()=>{ el.remove(); },4000);
     }
-
 </script>
 </body>
 </html>
