@@ -36,9 +36,10 @@
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
-    <!-- Google Apps Script URL - REPLACE THIS WITH YOUR DEPLOYED URL -->
+    <!-- REPLACE THIS URL WITH YOUR ACTUAL GOOGLE APPS SCRIPT WEB APP URL -->
     <script>
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHO4otXkEq-UbPojM_662ZLbDLSvsLJWaPzXqSIMjQ/dev';
+        // ⚠️ IMPORTANT: Replace this with your actual Google Apps Script Web App URL
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYED_WEB_APP_URL/exec';
         
         // Generate unique ID
         function generateId() {
@@ -47,7 +48,9 @@
         
         // Format date for display
         function formatDate(dateString) {
+            if (!dateString) return '-';
             const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '-';
             return date.toLocaleDateString('ru-RU', {
                 day: '2-digit',
                 month: '2-digit',
@@ -56,27 +59,43 @@
         }
         
         function formatTime(dateString) {
+            if (!dateString) return '-';
             const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '-';
             return date.toLocaleTimeString('ru-RU', {
                 hour: '2-digit',
                 minute: '2-digit'
             });
         }
         
-        // API functions
+        // Enhanced API functions with better error handling
         async function fetchIncomes() {
             try {
+                console.log('Fetching incomes from:', `${GOOGLE_SCRIPT_URL}?action=list`);
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=list`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
-                return data;
+                console.log('Fetched data:', data);
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                return Array.isArray(data) ? data : [];
             } catch (error) {
                 console.error('Error fetching incomes:', error);
+                alert('Ошибка при загрузке данных: ' + error.message);
                 return [];
             }
         }
         
         async function createIncome(incomeData) {
             try {
+                console.log('Creating income:', incomeData);
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=create`, {
                     method: 'POST',
                     headers: {
@@ -89,16 +108,29 @@
                         updated_date: new Date().toISOString()
                     })
                 });
-                return await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Create result:', result);
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                return result;
             } catch (error) {
                 console.error('Error creating income:', error);
-                return { error: error.message };
+                throw error;
             }
         }
         
         async function updateIncome(id, incomeData) {
             try {
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=update&id=${id}`, {
+                console.log('Updating income:', id, incomeData);
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=update&id=${encodeURIComponent(id)}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -108,22 +140,47 @@
                         updated_date: new Date().toISOString()
                     })
                 });
-                return await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Update result:', result);
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                return result;
             } catch (error) {
                 console.error('Error updating income:', error);
-                return { error: error.message };
+                throw error;
             }
         }
         
         async function deleteIncome(id) {
             try {
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=delete&id=${id}`, {
+                console.log('Deleting income:', id);
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=delete&id=${encodeURIComponent(id)}`, {
                     method: 'POST'
                 });
-                return await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Delete result:', result);
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                return result;
             } catch (error) {
                 console.error('Error deleting income:', error);
-                return { error: error.message };
+                throw error;
             }
         }
     </script>
@@ -280,6 +337,7 @@
                     <div id="loading" class="text-center py-8">
                         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                         <p class="mt-2 text-slate-600">Загрузка данных...</p>
+                        <p class="text-xs text-slate-400 mt-2">Если загрузка занимает много времени, проверьте URL Google Apps Script</p>
                     </div>
                     
                     <div id="incomeList" class="hidden">
@@ -344,6 +402,13 @@
         
         // Initialize the app
         document.addEventListener('DOMContentLoaded', async function() {
+            // Validate Google Script URL
+            if (GOOGLE_SCRIPT_URL.includes('YOUR_DEPLOYED_WEB_APP_URL')) {
+                alert('⚠️ ВАЖНО: Замените GOOGLE_SCRIPT_URL в коде на ваш реальный URL Google Apps Script Web App!');
+                document.getElementById('loading').innerHTML = '<p class="text-red-600 text-center">Ошибка конфигурации: не указан URL Google Apps Script</p>';
+                return;
+            }
+            
             await loadIncomes();
         });
         
@@ -352,18 +417,24 @@
             e.preventDefault();
             
             const formData = {
-                client_last_name: document.getElementById('client_last_name').value,
-                client_first_name: document.getElementById('client_first_name').value,
+                client_last_name: document.getElementById('client_last_name').value.trim(),
+                client_first_name: document.getElementById('client_first_name').value.trim(),
                 date: document.getElementById('date').value,
                 payment_amount: parseFloat(document.getElementById('payment_amount').value) || 0,
                 currency: document.getElementById('currency').value,
-                payment_number: document.getElementById('payment_number').value,
+                payment_number: document.getElementById('payment_number').value.trim(),
                 contract_total_amount: parseFloat(document.getElementById('contract_total_amount').value) || 0,
                 contract_signed: document.getElementById('contract_signed').checked,
-                direction: document.getElementById('direction').value,
-                contract_details: document.getElementById('contract_details').value,
-                received_by: document.getElementById('received_by').value
+                direction: document.getElementById('direction').value.trim(),
+                contract_details: document.getElementById('contract_details').value.trim(),
+                received_by: document.getElementById('received_by').value.trim()
             };
+            
+            // Validation
+            if (!formData.client_last_name || !formData.client_first_name || !formData.date) {
+                alert('Пожалуйста, заполните все обязательные поля (*)');
+                return;
+            }
             
             const saveBtn = document.getElementById('saveBtn');
             const originalText = saveBtn.innerHTML;
@@ -383,10 +454,11 @@
                     toggleForm();
                     resetForm();
                 } else {
-                    alert('Ошибка при сохранении: ' + (result.error || 'Неизвестная ошибка'));
+                    throw new Error(result.error || 'Неизвестная ошибка при сохранении');
                 }
             } catch (error) {
-                alert('Ошибка при сохранении: ' + error.message);
+                console.error('Save error:', error);
+                alert('Ошибка при сохранении: ' + error.message + '\n\nПроверьте:\n1. URL Google Apps Script\n2. Настройки доступа Web App\n3. Структуру Google Sheet');
             } finally {
                 saveBtn.innerHTML = originalText;
                 saveBtn.disabled = false;
@@ -404,8 +476,17 @@
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('incomeList').classList.remove('hidden');
             } catch (error) {
-                console.error('Error loading incomes:', error);
-                document.getElementById('loading').innerHTML = '<p class="text-red-600">Ошибка загрузки данных</p>';
+                console.error('Load error:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle text-red-500 text-2xl mb-2"></i>
+                        <p class="text-red-600">Ошибка загрузки данных</p>
+                        <p class="text-sm text-slate-500 mt-2">${error.message}</p>
+                        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                            Попробовать снова
+                        </button>
+                    </div>
+                `;
             }
         }
         
@@ -421,7 +502,8 @@
             
             noRecords.classList.add('hidden');
             tbody.innerHTML = incomes.map(income => {
-                const isUpdated = new Date(income.updated_date) > new Date(income.created_date);
+                const isUpdated = income.updated_date && income.created_date && 
+                                new Date(income.updated_date) > new Date(income.created_date);
                 const rowClass = isUpdated ? 'bg-blue-50' : '';
                 
                 return `
@@ -430,9 +512,9 @@
                             <div>${formatDate(income.date)}</div>
                             <div class="text-xs text-slate-400">${formatTime(income.created_date)}</div>
                         </td>
-                        <td class="p-3 font-semibold">${income.client_last_name} ${income.client_first_name}</td>
+                        <td class="p-3 font-semibold">${income.client_last_name || ''} ${income.client_first_name || ''}</td>
                         <td class="p-3 font-bold text-blue-600 whitespace-nowrap">
-                            ${(parseFloat(income.payment_amount) || 0).toLocaleString('ru-RU')} ${income.currency}
+                            ${(parseFloat(income.payment_amount) || 0).toLocaleString('ru-RU')} ${income.currency || 'RUB'}
                         </td>
                         <td class="p-3">${income.payment_number || '-'}</td>
                         <td class="p-3 text-slate-600 whitespace-nowrap">
@@ -440,7 +522,7 @@
                               (parseFloat(income.contract_total_amount) || 0).toLocaleString('ru-RU') : '-'}
                         </td>
                         <td class="p-3">
-                            ${income.contract_signed === 'true' || income.contract_signed === true ? 
+                            ${(income.contract_signed === 'true' || income.contract_signed === true) ? 
                               '<i class="fas fa-check-circle text-green-500"></i>' : 
                               '<i class="fas fa-times-circle text-slate-400"></i>'}
                         </td>
@@ -465,7 +547,7 @@
         
         function updateTotalIncome(incomes) {
             const total = incomes
-                .filter(income => income.currency === 'RUB')
+                .filter(income => (income.currency || 'RUB') === 'RUB')
                 .reduce((sum, income) => sum + (parseFloat(income.payment_amount) || 0), 0);
             
             document.getElementById('totalIncome').textContent = 
@@ -473,114 +555,3 @@
         }
         
         function toggleForm() {
-            const form = document.getElementById('incomeForm');
-            const btn = document.getElementById('toggleFormBtn');
-            const text = document.getElementById('formToggleText');
-            
-            if (form.classList.contains('hidden')) {
-                form.classList.remove('hidden');
-                text.textContent = 'Скрыть форму';
-            } else {
-                form.classList.add('hidden');
-                text.textContent = 'Добавить платеж';
-            }
-        }
-        
-        function resetForm() {
-            document.getElementById('incomeFormElement').reset();
-            document.getElementById('date').valueAsDate = new Date();
-            document.getElementById('incomeId').value = '';
-            editingIncome = null;
-            document.getElementById('formTitle').textContent = 'Новый платеж';
-        }
-        
-        function editIncome(id) {
-            const income = currentIncomes.find(i => i.id === id);
-            if (!income) return;
-            
-            editingIncome = income;
-            document.getElementById('formTitle').textContent = 'Редактировать платеж';
-            
-            // Fill form
-            document.getElementById('client_last_name').value = income.client_last_name || '';
-            document.getElementById('client_first_name').value = income.client_first_name || '';
-            document.getElementById('date').value = income.date || '';
-            document.getElementById('payment_amount').value = income.payment_amount || '';
-            document.getElementById('currency').value = income.currency || 'RUB';
-            document.getElementById('payment_number').value = income.payment_number || '';
-            document.getElementById('contract_total_amount').value = income.contract_total_amount || '';
-            document.getElementById('contract_signed').checked = income.contract_signed === 'true' || income.contract_signed === true;
-            document.getElementById('direction').value = income.direction || '';
-            document.getElementById('contract_details').value = income.contract_details || '';
-            document.getElementById('received_by').value = income.received_by || '';
-            
-            toggleForm();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        
-        async function deleteIncomeConfirm(id) {
-            if (confirm('Вы уверены, что хотите удалить этот платеж?')) {
-                try {
-                    const result = await deleteIncome(id);
-                    if (result.success) {
-                        await loadIncomes();
-                    } else {
-                        alert('Ошибка при удалении: ' + (result.error || 'Неизвестная ошибка'));
-                    }
-                } catch (error) {
-                    alert('Ошибка при удалении: ' + error.message);
-                }
-            }
-        }
-        
-        // Search functionality
-        document.getElementById('searchInput').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const filtered = currentIncomes.filter(income => {
-                return Object.values(income).some(value => 
-                    String(value).toLowerCase().includes(searchTerm)
-                );
-            });
-            renderIncomeList(filtered);
-            updateTotalIncome(filtered);
-        });
-        
-        // Export to CSV
-        function exportCSV() {
-            const headers = [
-                "Дата платежа", "Время создания", "Клиент", "Сумма", "Валюта", "№ платежа", "Стоимость дог.",
-                "Подписан", "Направление", "Детали", "Получил"
-            ];
-            
-            const rows = currentIncomes.map(income => [
-                formatDate(income.date),
-                formatTime(income.created_date),
-                `${income.client_last_name} ${income.client_first_name}`,
-                income.payment_amount,
-                income.currency,
-                income.payment_number || '',
-                income.contract_total_amount || '',
-                income.contract_signed === 'true' || income.contract_signed === true ? 'Да' : 'Нет',
-                `"${(income.direction || '').replace(/"/g, '""')}"`,
-                `"${(income.contract_details || '').replace(/"/g, '""')}"`,
-                `"${(income.received_by || '').replace(/"/g, '""')}"`
-            ].join(','));
-            
-            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows].join('\n');
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `income_export_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-        
-        // Mobile sidebar toggle
-        function toggleSidebar() {
-            // This is a simple implementation - you can enhance it further
-            alert('Мобильное меню будет реализовано в полной версии');
-        }
-    </script>
-</body>
-</html>
